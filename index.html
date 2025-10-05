@@ -1,0 +1,74 @@
+<pre>
+open devtools...
+
+here are some things to try
+
+    ---
+
+    // run all registered test units
+    await workspace.do.test()
+
+    ---
+
+    // eval some javascript inside the workspace
+    await workspace.call(unitOf.javascript `console.log('hello')`)
+
+    ---
+</pre>
+<script type="importmap">
+    {
+        "imports": {
+            "@workspace/": "./featuresets/synth/"
+        }
+    }
+</script>
+<script type="module">
+    import {Synth, synthUnits, unitOf, fetchUnits} from './featuresets/synth/bootstrap.js'
+
+    /**
+     * Retries an async function until success or timeout.
+     */
+    async function retryUntilSuccess(asyncFunction, {maxTimeMs, maxRetries = -1, retryDelayMs = 0}={}) {
+        let startTime = Date.now();
+        let retryCount = 0;
+
+        while (true) {
+            const elapsedTime = Date.now() - startTime;
+
+            if (elapsedTime > maxTimeMs) {
+                throw new Error(`Timeout after ${maxTimeMs}ms.`);
+            }
+
+            if (maxRetries !== -1 && retryCount >= maxRetries) {
+                throw new Error(`Max retries (${maxRetries}) reached.`);
+            }
+
+            try {
+                return await asyncFunction(); // Return immediately on success
+            } catch (error) {
+                retryCount++;
+                console.debug(`Attempt ${retryCount} failed: ${error.message}. Retrying in ${retryDelayMs}ms...`);
+                await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+            }
+        }
+    }
+
+    window.unitOf = unitOf
+
+    const fetchUnitsFromManifestAt = async manifestURL => {
+        const manifest = (await import(manifestURL)).default
+        const units = {}
+        for (const {urls, base} of manifest) {
+            Object.assign(units, await fetchUnits(base, urls))
+        }
+        return units
+    }
+
+    const workspace = new Synth({units: await synthUnits()})
+    window.workspace = workspace
+    console.log('window.workspace is defined. use it like this:')
+    console.log("  await workspace.eval(unitOf.javascript `console.log('hello')`)")
+    console.log(`  await workspace.do.test()`)
+
+
+</script>
