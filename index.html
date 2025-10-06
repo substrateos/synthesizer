@@ -11,19 +11,96 @@ here are some things to try
     ---
 
     // eval some javascript inside the workspace
-    await workspace.call(unitOf.javascript `console.log('hello')`)
+    await workspace.call({type: 'javascript', source: `'hello'`})
+
+    ---
+
+if you want chat enabled, set server= and aiChatService= url query parameters
+
+for example ?server=https://substrate-2921.local&aiChatService=gpt-oss-120b&service=screenshot
+
+if you want other services added as functions, set server= and service= url query parameters
+
+if chat is enabled, here are some things to try:
+
+    ---
+
+    // perform a multi-step action
+    await workspace.call({type: 'plan/markdown', source: `
+    1. pick 3 numbers
+    2. write a poem about these numbers
+    3. evaluate the poem for correctness. throw an error if it's not.
+    `})
+    ---
+
+    // generate a page
+    await workspace.do.edit({name: 'simple-page', instructions: 'make a simple html page'})
 
     ---
 </pre>
 <script type="importmap">
     {
         "imports": {
-            "@workspace/": "./featuresets/synth/"
+            "@workspace/": "./featuresets/synth/",
+            "@Synth/": "./featuresets/Synth/",
+            "@fetchUnits/": "./featuresets/fetchUnits/",
+            "@do-test/": "./featuresets/do-test/",
+            "@do-get/": "./featuresets/do-get/",
+            "@do-dump/": "./featuresets/do-dump/",
+            "@do-get-javascript/": "./featuresets/do-get-javascript/",
+            "@do-get-javascript-tests/": "./featuresets/do-get-javascript-tests/",
+            "@do-get-json/": "./featuresets/do-get-json/",
+            "@do-search/": "./featuresets/do-search/",
+            "@do-get-message/": "./featuresets/do-get-message/",
+            "@do-sample/": "./featuresets/do-sample/",
+            "@do-get-example-json/": "./featuresets/do-get-example-json/",
+            "@zygote/": "./featuresets/zygote/"
+        },
+        "scopes": {
+            "./featuresets/fetchUnits/": {
+                "@/": "./featuresets/fetchUnits/"
+            },
+            "./featuresets/Synth/": {
+                "@/": "./featuresets/Synth/"
+            },
+            "./featuresets/fetchUnits/": {
+                "@/": "./featuresets/fetchUnits/"
+            },
+            "./featuresets/do-get/": {
+                "@/": "./featuresets/do-get/"
+            },
+            "./featuresets/do-dump/": {
+                "@/": "./featuresets/do-dump/"
+            },
+            "./featuresets/do-search/": {
+                "@/": "./featuresets/do-search/"
+            },
+            "./featuresets/do-get-message/": {
+                "@/": "./featuresets/do-get-message/"
+            },
+            "./featuresets/do-sample/": {
+                "@/": "./featuresets/do-sample/"
+            },
+            "./featuresets/do-get-javascript/": {
+                "@/": "./featuresets/do-get-javascript/"
+            },
+            "./featuresets/do-get-javascript-tests/": {
+                "@/": "./featuresets/do-get-javascript-tests/"
+            },
+            "./featuresets/do-get-example-json/": {
+                "@/": "./featuresets/do-get-example-json/"
+            },
+            "./featuresets/do-get-json/": {
+                "@/": "./featuresets/do-get-json/"
+            },
+            "./featuresets/do-test/": {
+                "@/": "./featuresets/do-test/"
+            }
         }
     }
 </script>
 <script type="module">
-    import {Synth, synthUnits, unitOf, fetchUnits} from './featuresets/synth/bootstrap.js'
+    import {Synth, synthUnits, fetchUnits} from './featuresets/zygote/bootstrap.js'
 
     /**
      * Retries an async function until success or timeout.
@@ -53,22 +130,134 @@ here are some things to try
         }
     }
 
-    window.unitOf = unitOf
-
-    const fetchUnitsFromManifestAt = async manifestURL => {
-        const manifest = (await import(manifestURL)).default
-        const units = {}
-        for (const {urls, base} of manifest) {
-            Object.assign(units, await fetchUnits(base, urls))
+    const fetchUnitsFromManifestAt = async (manifestURL, ...options) => {
+        const {urls, base, main} = (await import(manifestURL)).default
+        const units = await fetchUnits(base, urls, ...options)
+        return {
+            units,
+            main,
         }
-        return units
     }
 
     const workspace = new Synth({units: await synthUnits()})
+    const listGlobals = (await workspace.get('globals/listGlobals')).default
+    async function getDefault(workspace, name) {
+        let unit = await workspace.get(name)
+        if (unit && unit[Symbol.toStringTag] === 'Module' && unit.default) {
+            unit = unit.default
+        }
+
+        return unit
+    }
+
+    for (const name of listGlobals()) {
+        console.log(`window.${name} ...`)
+        window[name] = await getDefault(workspace, `globals/${name}`)
+        console.log(`window.${name} is defined.`)
+    }
+
     window.workspace = workspace
     console.log('window.workspace is defined. use it like this:')
-    console.log("  await workspace.eval(unitOf.javascript `console.log('hello')`)")
+    console.log("  await workspace.eval({type: 'javascript', source: `console.log('hello')`})")
     console.log(`  await workspace.do.test()`)
 
+    await workspace.resetZygote()
+
+    const url = new URL(document.baseURI);
+    const server = url.searchParams.get("server") // 'https://substrate-b876.local'
+    const aiChatService = url.searchParams.get("aiChatService") // 'gpt-oss-120b'
+
+    let services = url.searchParams.getAll('service')
+    if (!services.includes(aiChatService)) {
+        services = [...services, aiChatService]
+    }
+
+    if (!server) {
+        console.log('server not configured, skipping chat, service and aiChatService configuration', server)
+    } else if (services.length) {
+        console.log('using server', server)
+
+        const fetchText = url => fetch(new URL(url, import.meta.url).toString()).then(response => response.ok
+            ? response.text()
+            : raise(new Error(`response is not ok; status="${response.status} ${response.statusText}"`)))
+
+        const fetchJSON = url => fetch(new URL(url, import.meta.url).toString()).then(response => response.ok
+            ? response.json()
+            : raise(new Error(`response is not ok; status="${response.status} ${response.statusText}"`)))
+
+        const fetchServiceSchema = async (server, serviceName) => {
+            const schema = await fetchJSON(`${server}/spaceview;space=image:${serviceName}/tree/openapi.json`)
+            schema.servers[0].url = `${server}/${serviceName}`
+            return schema
+        }
+
+        const fetchVendorSchema = async (name) => await fetchJSON(`tools/${name}.openapi.json`)
+
+        await workspace.write((await fetchUnitsFromManifestAt('./featuresets/do-get-openapi/manifest.js')).units)
+        const openapiSchema = await workspace.get("lib/openapi/schema")
+        const { enumerateServiceFunctions } = openapiSchema
+
+        const serviceUnits = {}
+        for (const service of services) {
+            console.log(`fetching schema for service ${service} schema...`)
+            const schema = await fetchServiceSchema(server, service)
+            console.log('found service schema', schema)
+
+            serviceUnits[`services/${service}/schema`] = {source: JSON.stringify(schema), type: 'json'}
+
+            for (const fn of enumerateServiceFunctions(schema)) {
+                const name = `services/${service}/operations/${fn.internalName}`
+                console.log('adding function to:', name)
+                serviceUnits[name] = fn
+            }
+        }
+        await workspace.write(serviceUnits)
+
+        if (aiChatService) {
+            const chatUnits = {}
+            const chatExtension = await fetchUnitsFromManifestAt('./featuresets/do-get-message/manifest.js')
+        //     // const axExtension = await fetchUnitsFromManifestAt('./featuresets/ax/manifest.js')
+        //     // const axAIUnit = await import('./featuresets/ax/lib/axAIUnit.js')
+
+            const getHealth = await workspace.get(`services/${aiChatService}/operations/getHealth`)
+            const createChatCompletion = await workspace.get(`services/${aiChatService}/operations/createChatCompletion`)
+            chatUnits[`services/aiChat/operations/createChatCompletion`] = {
+                type: 'javascript',
+                source: `export { default } from "@/services/${aiChatService}/operations/createChatCompletion"`,
+            }
+            console.log('found aiChatService', aiChatService)
+
+            if (getHealth) {
+                console.log(`waiting for aiChatService ${aiChatService} to be ready...`)
+                await retryUntilSuccess(getHealth, {maxTimeMs: 10000, retryDelayMs: 1000})
+                console.log(`aiChatService ${aiChatService} is ready!`)
+            }
+
+            Object.assign(chatUnits,
+                chatExtension.units,
+        //         ...axExtension,
+
+        //         // set up ax program evaluation handler
+        //         'do/get/dspy/evaluation': axAIUnit({createChatCompletion: units['createChatCompletion']}),
+        //         // 'do/get/dspy+image/evaluation': axAIUnit({createChatCompletion: units['createChatCompletion']}),
+            )
+            await workspace.write(chatUnits)
+        } else {
+            console.log('aiChatService not configured, skipping chat configuration')
+        }
+
+    //     const uiExtension = await fetchUnitsFromManifestAt('./featuresets/ui/manifest.js')
+    //     Object.assign(units, uiExtension)
+
+        // await workspace.write(units)
+
+        if (aiChatService) {
+            window.chat = (source) => workspace.eval({type: 'message/user', source})
+            console.log('window.chat is defined. use it like this:')
+            console.log(`  await chat('hi')`)
+        }
+
+        await workspace.resetZygote()
+    }
 
 </script>
