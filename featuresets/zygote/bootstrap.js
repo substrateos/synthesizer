@@ -38,19 +38,19 @@ const synthUnitsFromManifestsAt = async (makeSynth, manifestURLs) => {
 
 const bootstrapUnits0 = async () => ({
     // these are part of the bootstrapping sequence, so must be provided as values directly for now.
-    'bootstrap/do/get/javascript': {evaluation: (await import('@do-get-javascript/do/get/javascript.js')).default},
+    'bootstrap/do/get/javascript': {evaluation: (await import('@type-javascript/do/get/javascript.js')).default},
 
     ...(await fetchUnitsFromManifestAt('@do-get/manifest.js', {
         do: {get: 'bootstrap/do/get/javascript'},
     })).units,
 
-    ...(await fetchUnitsFromManifestAt('@do-get-javascript/manifest.js', {
+    ...(await fetchUnitsFromManifestAt('@type-javascript/manifest.js', {
         do: {get: 'bootstrap/do/get/javascript'},
     })).units,
 
-    ...(await fetchUnitsFromManifestAt('@do-get-javascript-tests/manifest.js')).units,
+    ...(await fetchUnitsFromManifestAt('@type-javascript-tests/manifest.js')).units,
 
-    ...(await fetchUnitsFromManifestAt('@do-get-example-json/manifest.js', {
+    ...(await fetchUnitsFromManifestAt('@type-example-json/manifest.js', {
         do: {get: 'bootstrap/do/get/javascript'},
     })).units,
 
@@ -82,7 +82,7 @@ export const synthUnits = async () => {
         'do/get': {evaluation: doGet},
         'do/get/javascript': {evaluation: doGetJavascript, synth: bootstrapSynth},
 
-        ...(await fetchUnitsFromManifestAt('@do-get-example-json/manifest.js')).units,
+        ...(await fetchUnitsFromManifestAt('@type-example-json/manifest.js')).units,
     }
 
     return {
@@ -92,7 +92,7 @@ export const synthUnits = async () => {
             synth.write(minUnits)
             return synth
         }, [
-            '@do-get-json/manifest.js',
+            '@type-json/manifest.js',
             '@do-test/manifest.js',
             '@do-dump/manifest.js',
             '@do-search/manifest.js',

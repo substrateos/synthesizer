@@ -47,13 +47,13 @@ if chat is enabled, here are some things to try:
             "@do-test/": "./featuresets/do-test/",
             "@do-get/": "./featuresets/do-get/",
             "@do-dump/": "./featuresets/do-dump/",
-            "@do-get-javascript/": "./featuresets/do-get-javascript/",
-            "@do-get-javascript-tests/": "./featuresets/do-get-javascript-tests/",
-            "@do-get-json/": "./featuresets/do-get-json/",
+            "@type-javascript/": "./featuresets/type-javascript/",
+            "@type-javascript-tests/": "./featuresets/type-javascript-tests/",
+            "@type-json/": "./featuresets/type-json/",
+            "@type-message/": "./featuresets/type-message/",
+            "@type-example-json/": "./featuresets/type-example-json/",
             "@do-search/": "./featuresets/do-search/",
-            "@do-get-message/": "./featuresets/do-get-message/",
             "@do-sample/": "./featuresets/do-sample/",
-            "@do-get-example-json/": "./featuresets/do-get-example-json/",
             "@zygote/": "./featuresets/zygote/"
         },
         "scopes": {
@@ -75,23 +75,23 @@ if chat is enabled, here are some things to try:
             "./featuresets/do-search/": {
                 "@/": "./featuresets/do-search/"
             },
-            "./featuresets/do-get-message/": {
-                "@/": "./featuresets/do-get-message/"
+            "./featuresets/type-message/": {
+                "@/": "./featuresets/type-message/"
             },
             "./featuresets/do-sample/": {
                 "@/": "./featuresets/do-sample/"
             },
-            "./featuresets/do-get-javascript/": {
-                "@/": "./featuresets/do-get-javascript/"
+            "./featuresets/type-javascript/": {
+                "@/": "./featuresets/type-javascript/"
             },
-            "./featuresets/do-get-javascript-tests/": {
-                "@/": "./featuresets/do-get-javascript-tests/"
+            "./featuresets/type-javascript-tests/": {
+                "@/": "./featuresets/type-javascript-tests/"
             },
-            "./featuresets/do-get-example-json/": {
-                "@/": "./featuresets/do-get-example-json/"
+            "./featuresets/type-example-json/": {
+                "@/": "./featuresets/type-example-json/"
             },
-            "./featuresets/do-get-json/": {
-                "@/": "./featuresets/do-get-json/"
+            "./featuresets/type-json/": {
+                "@/": "./featuresets/type-json/"
             },
             "./featuresets/do-test/": {
                 "@/": "./featuresets/do-test/"
@@ -193,7 +193,7 @@ if chat is enabled, here are some things to try:
 
         const fetchVendorSchema = async (name) => await fetchJSON(`tools/${name}.openapi.json`)
 
-        await workspace.write((await fetchUnitsFromManifestAt('./featuresets/do-get-openapi/manifest.js')).units)
+        await workspace.write((await fetchUnitsFromManifestAt('./featuresets/type-openapi/manifest.js')).units)
         const openapiSchema = await workspace.get("lib/openapi/schema")
         const { enumerateServiceFunctions } = openapiSchema
 
@@ -215,7 +215,7 @@ if chat is enabled, here are some things to try:
 
         if (aiChatService) {
             const chatUnits = {}
-            const chatExtension = await fetchUnitsFromManifestAt('./featuresets/do-get-message/manifest.js')
+            const chatExtension = await fetchUnitsFromManifestAt('./featuresets/type-message/manifest.js')
         //     // const axExtension = await fetchUnitsFromManifestAt('./featuresets/ax/manifest.js')
         //     // const axAIUnit = await import('./featuresets/ax/lib/axAIUnit.js')
 
