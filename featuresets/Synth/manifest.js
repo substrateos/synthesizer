@@ -5,7 +5,7 @@ export default {
         'lib/synth/Synth.js',
         'lib/synth/Tracer.js',
         'lib/synth/ulid.js',
-        'lib/synth/UnitStore.js',
+        'lib/synth/Store.js',
     ],
     main: 'lib/synth/Synth.js',
 }

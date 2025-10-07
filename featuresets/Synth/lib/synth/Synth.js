@@ -1,4 +1,4 @@
-import UnitStore from '@/lib/synth/UnitStore.js'
+import Store from '@/lib/synth/Store.js'
 import Tracer from '@/lib/synth/Tracer.js'
 import doer from '@/lib/synth/doer.js'
 
@@ -60,7 +60,7 @@ export default class {
 
     constructor({units, store, zygote}={}) {
         this.#zygote = zygote
-        this.#store = store || new UnitStore({units})
+        this.#store = store || new Store({units})
         this.#doer = doer
         this.#tracer = new Tracer()
 
