@@ -18,19 +18,9 @@ export default async function (handlerInputs) {
     const imports = findImports({ast})
     const importSources = imports.map(({source, specifiers}) => ({source, specifiers}))
 
-    const workspacePrefix = '@/'
     const deps = []
     for (const {source: importSource, specifiers} of importSources) {
-        let dep = importSource
-        if (!dep.startsWith(workspacePrefix)) {
-            continue
-        }
-
-        dep = dep.slice(workspacePrefix.length)
-        if (dep.endsWith('.js')) {
-            dep = dep.slice(0, -3)
-        }
-        deps.push([importSource, dep, specifiers.map(({type, importedName}) => ({type, importedName}))])
+        deps.push([importSource, specifiers.map(({type, importedName}) => ({type, importedName}))])
     }
 
     return deps

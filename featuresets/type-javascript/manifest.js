@@ -4,7 +4,7 @@ export default {
         'do/get/javascript.js',
         'do/get/javascript/ast.js',
         'do/get/javascript/deps.js',
-        'do/get/javascript/docs.js',
+        'do/get/javascript/depmap.js',
         'do/get/javascript/docs.js',
 
         'lib/javascript/acorn@8.15.0.js',

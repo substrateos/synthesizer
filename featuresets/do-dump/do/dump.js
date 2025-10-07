@@ -28,8 +28,14 @@ export default async function (handlerInputs) {
         const deps = await getDependencies(n, {
             getShallowDependencies: async name => {
                 const deps = await synth.getAttribute({name, attribute: 'deps'}) || []
-                console.log({deps})
-                return deps.map(([internal, external]) => external)
+                const depmap = await synth.getAttribute({name, attribute: 'depmap'}) || {}
+                const actualDeps = deps.map(dep => depmap[dep])
+
+                // include an explicity importmap if necessary.
+                if (JSON.stringify(deps) != JSON.stringify(actualDeps)) {
+                    units[`importmap[${name}]`] = {type: "json", source: JSON.stringify(depmap)}
+                }
+                return actualDeps
             },
         })
 

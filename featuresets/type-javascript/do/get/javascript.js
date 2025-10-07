@@ -6,6 +6,7 @@ import prepareDynamicImports from '@/lib/javascript/prepareDynamicImports.js';
 import insertReturn from '@/lib/javascript/insertReturn.js';
 import getJavascriptAST from '@/do/get/javascript/ast.js'
 import getJavascriptDeps from '@/do/get/javascript/deps.js'
+import getJavascriptDepmap from '@/do/get/javascript/depmap.js'
 import getJavascriptDocs from '@/do/get/javascript/docs.js'
 
 const origConsoleLog = console.log
@@ -19,7 +20,7 @@ export const setWorkspace = (w) => {
 }
 export const getWorkspace = () => workspace`
 
-async function runJavaScriptModule({name, source, workspace, ast, deps}) {
+async function runJavaScriptModule({name, source, workspace, ast, deps, depmap}) {
     const cleanups = []
 
     const createBlobURL = (key, blobParts, type) => {
@@ -33,7 +34,7 @@ async function runJavaScriptModule({name, source, workspace, ast, deps}) {
     const { setWorkspace } = await import(workspaceImplModuleURL)
     setWorkspace(workspace)
 
-    const depModules = deps.map(([importName, depName, specifiers]) => {
+    const depModules = deps.map(([importName, specifiers]) => {
         const importsDefault = specifiers.some(({type}) => type === 'default')
         const importsNamespace = specifiers.some(({type}) => type === 'namespace')
         let maybeExportDefault = importsDefault ? `export default (dep?.[Symbol.toStringTag] === 'Module') ? dep.default : dep` : ''
@@ -46,8 +47,13 @@ async function runJavaScriptModule({name, source, workspace, ast, deps}) {
 
         // if (importsNamespace) {
         //     // this is a hack and we really should be parsing the exports of the source module to generate maybeExportNames
-        //     maybeExportDefault = `export default {...dep}`
+        //     maybeExportDefault = `export {...dep}`
         // }
+
+        const depName = depmap[importName]
+        if (!depName) {
+            return
+        }
 
         return [importName, `
 const {getWorkspace} = await import("${workspaceImplModuleURL}")
@@ -55,7 +61,7 @@ const dep = await getWorkspace().get(${JSON.stringify(depName)})
 ${maybeExportDefault}
 ${maybeExportNames}
     `]
-    })
+    }).filter(_ => _)
 
     const {
         entryURL,
@@ -123,7 +129,14 @@ async function runJavascript(handlerInputs) {
     try {
       deps = await workspace.getAttribute({unit, name, attribute: 'deps'})
     } catch (e) {
-      console.warn('could not parse free variables in source', e, {source})
+      console.warn('could not parse deps variables in source', e, {source})
+    }
+
+    let depmap = {}
+    try {
+      depmap = await workspace.getAttribute({unit, name, attribute: 'depmap'})
+    } catch (e) {
+      console.warn('could not get depmap from source', e, {source})
     }
 
     let ast, hasModuleSyntax
@@ -134,13 +147,13 @@ async function runJavascript(handlerInputs) {
     }
 
     if (hasModuleSyntax) {
-        return await runJavaScriptModule({name, source, workspace, deps, ast})
+        return await runJavaScriptModule({name, source, workspace, deps, depmap, ast})
     }
 
-    return await runJavascriptScript({source, workspace, deps, ast})
+    return await runJavascriptScript({source, workspace, deps, depmap, ast})
 }
 
-async function runJavascriptScript({source, workspace, deps, ast}) {
+async function runJavascriptScript({source, workspace, deps, depmap, ast}) {
 
     // rewrite the source to return the value of expression if necessary
     source = insertReturn({source, ast})
@@ -150,13 +163,14 @@ async function runJavascriptScript({source, workspace, deps, ast}) {
             Array.from(names, async name => [name, (await workspace.get(name, options))])))
     }
 
+    let depNames = deps.map(dep => depmap[dep])
     let depValues = {}
     try {
-        const undefinedDeps = deps.filter(v => !workspace.has(v))
+        const undefinedDeps = depNames.filter(v => !workspace.has(v))
         if (undefinedDeps.length) {
             throw new Error(`workspace does not have definitions for unbound variables in source: ${undefinedDeps.join(", ")}`)
         }
-        depValues = await getAll(deps)
+        depValues = await getAll(depNames)
     } catch (e) {
         console.warn('could not parse free variables in source', e, {source})
     }
@@ -192,6 +206,8 @@ export default async function(handlerInputs) {
         return await getJavascriptDocs.call(this, handlerInputs)
     case 'deps':
         return await getJavascriptDeps.call(this, handlerInputs)
+    case 'depmap':
+        return await getJavascriptDepmap.call(this, handlerInputs)
     }
 
     const actionHandlerName = `do/get/javascript/${attribute}`
