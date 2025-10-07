@@ -1,0 +1,16 @@
+export default {
+    base: import.meta.url,
+    urls: [
+        'do/get/dom-renkon/evaluation.js',
+        'examples/chat-ui/chat-ui.component.js',
+        // 'examples/chat-ui/chat-ui/tests/simple.js',
+        'examples/chat-ui/chat-ui.dom-renkon.js',
+        'lib/dom-renkon/integration/modules/tests/exports.js',
+        'lib/dom-renkon/integration/modules.js',
+        'lib/dom-renkon/findDefaultExports.js',
+        'lib/dom-renkon/acorn@8.15.0.js',
+        'lib/dom-renkon/parse.js',
+        'lib/htm@3.1.1/preact.js',
+        'lib/renkon-core@0.10.3/renkon-core.js',
+    ],
+}

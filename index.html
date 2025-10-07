@@ -47,6 +47,7 @@ if chat is enabled, here are some things to try:
             "@do-test/": "./featuresets/do-test/",
             "@do-get/": "./featuresets/do-get/",
             "@do-dump/": "./featuresets/do-dump/",
+            "@type-dom-renkon/": "./featuresets/type-dom-renkon/",
             "@type-javascript/": "./featuresets/type-javascript/",
             "@type-javascript-tests/": "./featuresets/type-javascript-tests/",
             "@type-json/": "./featuresets/type-json/",
@@ -71,6 +72,9 @@ if chat is enabled, here are some things to try:
             },
             "./featuresets/do-dump/": {
                 "@/": "./featuresets/do-dump/"
+            },
+            "./featuresets/type-dom-renkon/": {
+                "@/": "./featuresets/type-dom-renkon/"
             },
             "./featuresets/do-search/": {
                 "@/": "./featuresets/do-search/"
@@ -155,6 +159,12 @@ if chat is enabled, here are some things to try:
         window[name] = await getDefault(workspace, `globals/${name}`)
         console.log(`window.${name} is defined.`)
     }
+
+    const uiUnits = {
+        ...(await fetchUnitsFromManifestAt('@type-dom-renkon/manifest.js')).units
+    }
+    await workspace.write(uiUnits)
+
 
     window.workspace = workspace
     console.log('window.workspace is defined. use it like this:')
@@ -245,11 +255,6 @@ if chat is enabled, here are some things to try:
         } else {
             console.log('aiChatService not configured, skipping chat configuration')
         }
-
-    //     const uiExtension = await fetchUnitsFromManifestAt('./featuresets/ui/manifest.js')
-    //     Object.assign(units, uiExtension)
-
-        // await workspace.write(units)
 
         if (aiChatService) {
             window.chat = (source) => workspace.eval({type: 'message/user', source})

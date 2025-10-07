@@ -6,10 +6,23 @@ export default async (base, subpaths, sharedAttributes={}) => {
     return Object.fromEntries(await Promise.all(subpaths.map(async subpath => {
         const attributes = {}
         const url = new URL(subpath, base)
-        const name = subpath.replace(/(\.[^.]+)$/, '') // trim suffix
         const response = await fetch(url)
         if (!response.ok) {
             throw new Error(`response is not ok; status="${response.status} ${response.statusText}"`)
+        }
+
+        const contentType = response.headers.get('Content-Type')
+        if (contentType.startsWith('application/javascript') ||
+            contentType.startsWith('text/javascript')) {
+            attributes.type = 'javascript'
+        }
+
+        let name = subpath.replace(/(\.[^.]+)$/, '') // trim final suffix
+
+        // trim additional suffix
+        if (name.endsWith('.dom-renkon')) {
+            attributes.type = 'dom-renkon'
+            name = name.replace(/\.dom-renkon$/, '')
         }
 
         const isExampleFor = name.match(/^(.+)\/examples\//)
@@ -23,11 +36,6 @@ export default async (base, subpaths, sharedAttributes={}) => {
             attributes.testFor = isTestFor[1]
         }
 
-        const contentType = response.headers.get('Content-Type')
-        if (contentType.startsWith('application/javascript') ||
-            contentType.startsWith('text/javascript')) {
-            attributes.type = 'javascript'
-        }
         let source = await response.text()
         if (attributes.type === 'javascript') {
             source = source + `\n//# sourceURL=${name}`
