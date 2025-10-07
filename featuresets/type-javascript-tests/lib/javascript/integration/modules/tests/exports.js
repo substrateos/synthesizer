@@ -25,6 +25,14 @@ export default [
         }
     },
     {
+        description: "Default export of an existing value",
+        params: ["function myFunc() {}\nexport default myFunc"],
+        returns: {
+            imports: [],
+            exports: [{ type: 'default', name: 'myFunc', span: {start: 21, end: 42} }],
+        }
+    },
+    {
         description: "Default export from an import",
         params: ["export {default} from 'foo'"],
         returns: {

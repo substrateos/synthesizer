@@ -57,7 +57,7 @@ const nodeHandlers = {
     'ExportDefaultDeclaration': (node) => {
         return {
             type: 'default',
-            name: node.declaration.id ? node.declaration.id.name : 'anonymous',
+            name: node.declaration.name ?? (node.declaration.id ? node.declaration.id.name : 'anonymous'),
             span: { start: node.start, end: node.end },
         };
     },
