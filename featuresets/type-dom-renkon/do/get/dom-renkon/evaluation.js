@@ -1,7 +1,7 @@
 import parse from "@/lib/dom-renkon/parse"
 import findDefaultExports from "@/lib/dom-renkon/findDefaultExports"
-import { ProgramState } from "@/lib/renkon-core@0.10.3/renkon-core.js"
-import { h, render, Component, html } from "@/lib/htm@3.1.1/preact.js"
+import { ProgramState } from "@/lib/dom-renkon/renkon-core@0.10.3/renkon-core.js"
+import { h, render, Component, html } from "@/lib/dom-renkon/htm@3.1.1/preact.js"
 import replaceSpans from "@/lib/dom-renkon/replaceSpans"
 import findImports from "@/lib/dom-renkon/findImports"
 import containerElement from "@/lib/dom-renkon/containerElement"
@@ -10,6 +10,13 @@ import defineCustomElement from "@/lib/dom-renkon/defineCustomElement"
 // note that we can't upgrade our custom element definition, so we need to lazily re-use it.
 const baseCustomElementName = 'renkon-mounter'
 let customElementName = defineCustomElement(baseCustomElementName, containerElement)
+
+function getDefaultIfModule(unit) {
+    if (unit && unit[Symbol.toStringTag] === 'Module' && unit.default) {
+        unit = unit.default
+    }
+    return unit
+}
 
 export default async function (handlerInputs) {
     const {action, unit, name, workspace} = this
@@ -45,6 +52,11 @@ export default async function (handlerInputs) {
 
         receivers.push(value => {
             for (const {type, localName} of specifiers) {
+                switch (type) {
+                case 'default':
+                    value = getDefaultIfModule(value)
+                    break
+                }
                 ps.registerEvent(localName, value)
             }
         })
@@ -80,7 +92,6 @@ export default async function (handlerInputs) {
     source = replaceSpans(source, spanReplacements)
 
     ps.evaluate(0)
-    refreshReceiversNamed([...importReceivers.keys()])
 
     containerNode.programState = ps
     containerNode.workspace = workspace

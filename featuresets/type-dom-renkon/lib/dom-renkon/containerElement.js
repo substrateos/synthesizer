@@ -1,10 +1,6 @@
 export default class extends HTMLElement {
     connectedCallback() {
         const ps = this.programState
-        if (!ps.evaluatorRunning) {
-            ps.evaluator(Date.now());
-        }
-
         const workspace = this.workspace
         const importReceivers = this.importReceivers
         const refreshReceiversNamed = this.refreshReceiversNamed
@@ -33,6 +29,14 @@ export default class extends HTMLElement {
             refreshReceiversNamed([...importReceivers.keys()])
         }
         workspace.addEventListener('restore', onRestore)
+
+        // provide our initial update
+        refreshReceiversNamed([...importReceivers.keys()])
+
+        // and then start running
+        if (!ps.evaluatorRunning) {
+            ps.evaluator(Date.now());
+        }
 
         this.dispose = () => {
             if (ps?.evaluatorRunning) {

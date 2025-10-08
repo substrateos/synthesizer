@@ -1,7 +1,6 @@
-import {html} from '@/lib/htm@3.1.1/preact'
+import { html } from "@/lib/dom-renkon/htm@3.1.1/preact.js"
 
 export default function ChatUI({ messages = [] }) {
-  // Styles are inlined for portability and to keep the unit self-contained.
   const styles = {
     container: 'font-family: ui-sans-serif, system-ui, sans-serif; border: 1px solid #e2e8f0; border-radius: 0.5rem; padding: 1rem; max-width: 600px; margin: 2rem auto; display: flex; flex-direction: column; gap: 0.75rem;',
     message: 'padding: 0.5rem 0.875rem; border-radius: 1.25rem; max-width: 80%; line-height: 1.5; word-wrap: break-word;',
@@ -12,8 +11,8 @@ export default function ChatUI({ messages = [] }) {
   return html`
     <div style=${styles.container}>
       ${messages.map(msg => html`
-        <div class="chat-message chat-${msg.sender}" style="${styles.message} ${msg.sender === 'user' ? styles.user : styles.assistant}">
-          ${msg.text}
+        <div class="chat-message chat-${msg.role}" style="${styles.message} ${msg.role === 'user' ? styles.user : styles.assistant}">
+          ${msg.content.flatMap(({text}) => text).join(" ")}
         </div>
       `)}
     </div>
