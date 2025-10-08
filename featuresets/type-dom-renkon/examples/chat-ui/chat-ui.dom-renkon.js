@@ -1,5 +1,7 @@
 const {html} = Renkon.app
 
+import messages from "@/chat/messages"
+
 function ChatUI({ messages = [] }) {
   const styles = {
     container: 'font-family: ui-sans-serif, system-ui, sans-serif; border: 1px solid #e2e8f0; border-radius: 0.5rem; padding: 1rem; max-width: 600px; margin: 2rem auto; display: flex; flex-direction: column; gap: 0.75rem;',
@@ -11,21 +13,16 @@ function ChatUI({ messages = [] }) {
   return html`
     <div style=${styles.container}>
       ${messages.map(msg => html`
-        <div class="chat-message chat-${msg.sender}" style="${styles.message} ${msg.sender === 'user' ? styles.user : styles.assistant}">
-          ${msg.text}
+        <div class="chat-message chat-${msg.role}" style="${styles.message} ${msg.role === 'user' ? styles.user : styles.assistant}">
+          ${msg.content.flatMap(({text}) => text).join(" ")}
         </div>
       `)}
     </div>
   `;
 }
 
-const time = Behaviors.timer(1000)
+const root = ChatUI({messages})
 
-const root = ChatUI({
-    messages: [
-        {sender: 'user', text: `hi at ${time}`},
-        {sender: 'assistant', text: 'hi to you too'},
-    ]
-})
+console.log('in renkon', {messages})
 
 export default root

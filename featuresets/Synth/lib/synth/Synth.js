@@ -104,6 +104,14 @@ export default class {
         this.log = (...msgs) => this.#tracer.onLog(...msgs)
     }
 
+    addEventListener(name, listener, options) {
+        this.#store.addEventListener(name, listener, options)
+    }
+
+    removeEventListener(name, listener) {
+        this.#store.removeEventListener(name, listener)
+    }
+
     async getAttribute(options) {
         const traceFinish = this.#tracer.onGetAttribute(options)
         let {unit, attribute='evaluation', name, ...rest} = options
