@@ -51,7 +51,7 @@ if chat is enabled, here are some things to try:
             "@type-javascript/": "./featuresets/type-javascript/",
             "@type-javascript-tests/": "./featuresets/type-javascript-tests/",
             "@type-json/": "./featuresets/type-json/",
-            "@type-message/": "./featuresets/type-message/",
+            "@type-chat/": "./featuresets/type-chat/",
             "@type-example-json/": "./featuresets/type-example-json/",
             "@do-search/": "./featuresets/do-search/",
             "@do-sample/": "./featuresets/do-sample/",
@@ -79,8 +79,8 @@ if chat is enabled, here are some things to try:
             "./featuresets/do-search/": {
                 "@/": "./featuresets/do-search/"
             },
-            "./featuresets/type-message/": {
-                "@/": "./featuresets/type-message/"
+            "./featuresets/type-chat/": {
+                "@/": "./featuresets/type-chat/"
             },
             "./featuresets/do-sample/": {
                 "@/": "./featuresets/do-sample/"
@@ -225,7 +225,7 @@ if chat is enabled, here are some things to try:
 
         if (aiChatService) {
             const chatUnits = {}
-            const chatExtension = await fetchUnitsFromManifestAt('./featuresets/type-message/manifest.js')
+            const chatExtension = await fetchUnitsFromManifestAt('./featuresets/type-chat/manifest.js')
         //     // const axExtension = await fetchUnitsFromManifestAt('./featuresets/ax/manifest.js')
         //     // const axAIUnit = await import('./featuresets/ax/lib/axAIUnit.js')
 
@@ -257,7 +257,7 @@ if chat is enabled, here are some things to try:
         }
 
         if (aiChatService) {
-            window.chat = (source) => workspace.eval({type: 'message/user', source})
+            window.chat = (source) => workspace.eval({type: 'chat/message/user', source})
             console.log('window.chat is defined. use it like this:')
             console.log(`  await chat('hi')`)
         }

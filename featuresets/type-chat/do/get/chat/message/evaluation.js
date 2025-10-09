@@ -30,7 +30,7 @@ export default async function() {
         trimmedAssistantMessage,
         task,
         renderResult,
-    } = await workspace.eval({type: 'message/assistant', source: assistantCompletionMessage.content})
+    } = await workspace.eval({type: 'chat/message/assistant', source: assistantCompletionMessage.content})
 
     let assistantMessage = textMessage(assistantCompletionMessage.role, trimmedAssistantMessage)
     assistantMessage[assistantCompletionMessageSymbol] = assistantCompletionMessage
@@ -40,18 +40,18 @@ export default async function() {
     if (task) {
         origConsoleLog('start', {task})
         if (task.ok) {
-            task = await workspace.eval({type: 'task', source: JSON.stringify(task)})
+            task = await workspace.eval({type: 'chat/task', source: JSON.stringify(task)})
             origConsoleLog('done', {task})
         }
 
         if (!task.ok) {
-            task = await workspace.eval({type: 'task/error', source: JSON.stringify(task)})
+            task = await workspace.eval({type: 'chat/task/error', source: JSON.stringify(task)})
             origConsoleLog('error done', {task})
         }
 
         const systemMessageText = renderResult(task).join("\n")
         const systemMessage = JSON.stringify(textMessage("system", systemMessageText))
-        assistantMessage = await workspace.eval({type: 'message', source: systemMessage})
+        assistantMessage = await workspace.eval({type: 'chat/message', source: systemMessage})
     }
 
     return assistantMessage

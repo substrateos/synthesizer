@@ -1,6 +1,6 @@
 export default async function() {
     const {unit: {source}, workspace} = this
-    const result = await workspace.eval({type: 'prompt', source})
+    const result = await workspace.eval({type: 'chat/prompt', source})
 
     const codefenceMatch = result.match(/\s*```(\S+)\n([\s\S]+)\n```\s*/);
     if (codefenceMatch) {

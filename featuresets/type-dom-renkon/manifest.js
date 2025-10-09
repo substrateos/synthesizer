@@ -2,8 +2,6 @@ export default {
     base: import.meta.url,
     urls: [
         'do/get/dom-renkon/evaluation.js',
-        'chat/ui/ChatUI.js',
-        'chat/ui.dom-renkon.js',
         'lib/dom-renkon/integration/modules/tests/exports.js',
         'lib/dom-renkon/integration/modules.js',
         'lib/dom-renkon/replaceSpans/tests/simple.js',

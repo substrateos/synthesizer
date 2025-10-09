@@ -22,14 +22,14 @@ export default async function (handlerInputs) {
     let prompt
     if (!initial?.length) {
         prompt = {
-            type: 'prompt/markdown', source:
+            type: 'chat/prompt/markdown', source:
                 `Create a file according to the following instructions. Reply with just a codefence and nothing else.
 ## Instructions
 ${instructions}
 `}
     } else {
         prompt = {
-            type: 'prompt/markdown', source:
+            type: 'chat/prompt/markdown', source:
                 `Update the file according to the given instructions. Reply with just a codefence and nothing else.
 ## Instructions
 ${instructions}
