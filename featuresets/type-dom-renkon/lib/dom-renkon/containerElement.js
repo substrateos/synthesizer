@@ -2,36 +2,38 @@ export default class extends HTMLElement {
     connectedCallback() {
         const ps = this.programState
         const workspace = this.workspace
-        const importReceivers = this.importReceivers
-        const refreshReceiversNamed = this.refreshReceiversNamed
+        const imports = this.imports
+        const resampleImports = this.resampleImports
+
+        const disposers = []
 
         const onWrite = ({detail: {set, del}}) => {
             const names = []
             for (const name in set) {
-                const receivers = importReceivers.has(name)
-                if (!receivers) { continue }
-                names.push(name)
-            }
-            if (del) {
-                for (const name of del) {
-                    const receivers = importReceivers.has(name)
-                    if (!receivers) { continue }
+                if (imports.has(name)) {
                     names.push(name)
                 }
             }
+            if (del) {
+                for (const name of del) {
+                    if (imports.has(name)) {
+                        names.push(name)
+                    }
+                }
+            }
             if (names.length) {
-                refreshReceiversNamed(names)
+                resampleImports(names)
             }
         }
         workspace.addEventListener('write', onWrite)
+        disposers.push(() => workspace.removeEventListener('write', onWrite))
 
-        const onRestore = () => {
-            refreshReceiversNamed([...importReceivers.keys()])
-        }
+        const onRestore = () => { resampleImports() }
         workspace.addEventListener('restore', onRestore)
+        disposers.push(() => workspace.removeEventListener('restore', onRestore))
 
         // provide our initial update
-        refreshReceiversNamed([...importReceivers.keys()])
+        resampleImports()
 
         // and then start running
         if (!ps.evaluatorRunning) {
@@ -45,8 +47,9 @@ export default class extends HTMLElement {
             }
             this.dispose = undefined
 
-            workspace.removeEventListener('write', onWrite)
-            workspace.removeEventListener('restore', onRestore)
+            for (const disposer of disposers) {
+                disposers()
+            }
         }
     }
     disconnectedCallback() {

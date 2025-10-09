@@ -1,7 +1,7 @@
 import parse from "@/lib/dom-renkon/parse"
 import findDefaultExports from "@/lib/dom-renkon/findDefaultExports"
-import { ProgramState } from "@/lib/dom-renkon/renkon-core@0.10.3/renkon-core.js"
-import { h, render, Component, html } from "@/lib/dom-renkon/htm@3.1.1/preact.js"
+import { ProgramState } from "@/lib/dom-renkon/renkon-core@0.10.3/renkon-core"
+import { h, render, Component, html } from "@/lib/dom-renkon/htm@3.1.1/preact"
 import replaceSpans from "@/lib/dom-renkon/replaceSpans"
 import findImports from "@/lib/dom-renkon/findImports"
 import containerElement from "@/lib/dom-renkon/containerElement"
@@ -29,55 +29,73 @@ export default async function (handlerInputs) {
 
     let source = await workspace.getAttribute({unit, name, attribute: 'source'})
 
+    let genimportCount = 0
+    const genimport = () => `_$$genimport$${genimportCount++}`
+
     // todo support depmap and full imports
 
+    const importScripts = new Set()
+
     const {ast} = parse({source})
-    const importReceivers = new Map()
-    const importReceiverLocalNames = new Set()
+    const imports = new Map()
     const addImport = (importSource, specifiers) => {
-        let receivers = importReceivers.get(importSource)
+        let receivers = imports.get(importSource)
         if (!receivers) {
             receivers = []
-            importReceivers.set(importSource, receivers)
-        }
-        for (const {type, localName} of specifiers) {
-             // {type: default, localName}
-             // {type: named, localName, importedName}
-             // {type: namespace, localName}
-            if (type !== 'default') {
-                throw new Error("only default imports are supported at the moment")
-            }
-            importReceiverLocalNames.add(localName)
+            imports.set(importSource, receivers)
         }
 
-        receivers.push(value => {
-            for (const {type, localName} of specifiers) {
-                switch (type) {
-                case 'default':
-                    value = getDefaultIfModule(value)
-                    break
+        let importReceiverName
+        for (const {type, localName, importedName} of specifiers) {
+            // {type: default, localName}
+            // {type: named, localName, importedName}
+            // {type: namespace, localName}
+            switch (type) {
+            case 'default':
+                importScripts.add(`const ${localName} = Behaviors.receiver();`)
+                receivers.push(value => ps.registerEvent(localName, getDefaultIfModule(value)))
+                break
+            case 'named':
+                if (!importReceiverName) {
+                    importReceiverName = genimport()
                 }
-                ps.registerEvent(localName, value)
+                importScripts.add(`const ${localName} = ${importReceiverName}.${importedName ?? localName};`)
+                break
+            default:
+                throw new Error("only default and named imports are supported at the moment")
             }
-        })
+        }
+
+        if (importReceiverName) {
+            importScripts.add(`const ${importReceiverName} = Behaviors.receiver();`)
+            receivers.push(value => ps.registerEvent(importReceiverName, value))
+        }
     }
     const refreshReceiversNamed = async (names) => {
-        const values = await Promise.all(names.map(name => workspace.has(name) ? workspace.get(name) : undefined))
-
+        const resolveImport = name => {
+            if (name === "@workspace") { return workspace }
+            return workspace.has(name) ? workspace.get(name) : undefined
+        }
+        const values = await Promise.all(names.map(name => resolveImport(name)))
         names.forEach((name, i) => {
             const value = values[i]
-            const receivers = importReceivers.get(name)
-            for (const fn of receivers) { fn(value) }
+            const receivers = imports.get(name)
+            if (receivers) {
+                for (const fn of receivers) { fn(value) }
+            }
         })
     }
 
     const spanReplacements = []
 
-    const imports = findImports({ast})
-    for (let {source: importSource, span, dynamic, specifiers} of imports) {
+    const foundImports = findImports({ast})
+    for (let {source: importSource, span, dynamic, specifiers} of foundImports) {
         if (dynamic) { continue }
-        if (!importSource.startsWith("@/")) { continue }
-        addImport(importSource.slice(2), specifiers)
+        if (!importSource.startsWith("@")) { continue }
+        if (importSource.startsWith("@/")) {
+            importSource = importSource.slice(2)
+        }
+        addImport(importSource, specifiers)
         spanReplacements.push({...span, replacement: `// ${source.slice(span.start, span.end)}`})
     }
 
@@ -95,18 +113,15 @@ export default async function (handlerInputs) {
 
     containerNode.programState = ps
     containerNode.workspace = workspace
-    containerNode.importReceivers = importReceivers
-    containerNode.refreshReceiversNamed = refreshReceiversNamed
+    containerNode.imports = new Set(imports.keys())
+    containerNode.resampleImports = (names=[...imports.keys()]) => refreshReceiversNamed(names)
 
-    const renderScript = `((component) => {
-        const {html, render, h, containerNode} = Renkon.app;
+    const renderScript = `((component, {render, containerNode}) => {
         render(component, containerNode);
-    })(${defaultExportName});`
-
-    const importReceiverScripts = Array.from(importReceiverLocalNames, name => `const ${name} = Behaviors.receiver();`)
+    })(${defaultExportName}, Renkon.app);`
 
     const scripts = [
-        ...importReceiverScripts,
+        ...importScripts,
         source,
         renderScript,
     ]
