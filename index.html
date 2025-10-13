@@ -154,17 +154,15 @@ if chat is enabled, here are some things to try:
         return unit
     }
 
+    await workspace.write({
+        ...(await fetchUnitsFromManifestAt('@type-dom-renkon/manifest.js')).units,
+    })
+
     for (const name of listGlobals()) {
         console.log(`window.${name} ...`)
         window[name] = await getDefault(workspace, `globals/${name}`)
         console.log(`window.${name} is defined.`)
     }
-
-    const uiUnits = {
-        ...(await fetchUnitsFromManifestAt('@type-dom-renkon/manifest.js')).units
-    }
-    await workspace.write(uiUnits)
-
 
     window.workspace = workspace
     console.log('window.workspace is defined. use it like this:')
