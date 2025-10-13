@@ -52,6 +52,7 @@ if chat is enabled, here are some things to try:
             "@type-javascript-tests/": "./featuresets/type-javascript-tests/",
             "@type-json/": "./featuresets/type-json/",
             "@type-chat/": "./featuresets/type-chat/",
+            "@type-logic/": "./featuresets/type-logic/",
             "@type-example-json/": "./featuresets/type-example-json/",
             "@do-search/": "./featuresets/do-search/",
             "@do-sample/": "./featuresets/do-sample/",
@@ -81,6 +82,9 @@ if chat is enabled, here are some things to try:
             },
             "./featuresets/type-chat/": {
                 "@/": "./featuresets/type-chat/"
+            },
+            "./featuresets/type-logic/": {
+                "@/": "./featuresets/type-logic/"
             },
             "./featuresets/do-sample/": {
                 "@/": "./featuresets/do-sample/"
@@ -155,6 +159,7 @@ if chat is enabled, here are some things to try:
     }
 
     await workspace.write({
+        ...(await fetchUnitsFromManifestAt('@type-logic/manifest.js')).units,
         ...(await fetchUnitsFromManifestAt('@type-dom-renkon/manifest.js')).units,
     })
 
