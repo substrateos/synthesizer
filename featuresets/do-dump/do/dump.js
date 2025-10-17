@@ -6,7 +6,6 @@ const getDependencies = async (name, {getShallowDependencies, transitive=true}={
         return
     }
     const mine = await getShallowDependencies(name) || []
-    console.log({mine})
     dependencies[name] = mine
     if (transitive) {
         for (const a of mine) {
@@ -24,23 +23,42 @@ export default async function (handlerInputs) {
     for (const path of paths) {
         let synth = path.slice(0, -1).reduce((acc, name) => acc.read(name).synth, workspace)
         let n = path[path.length - 1]
+        let seeds
+        if (typeof n === 'string') {
+            seeds = [n]
+        } else if (n instanceof RegExp) {
+            seeds = synth.names().filter(name => n.test(name))
+        } else {
+            throw new Error(`invalid element path must be [...string] or [...string, RegExp]`)
+        }
 
-        const deps = await getDependencies(n, {
-            getShallowDependencies: async name => {
-                const deps = await synth.getAttribute({name, attribute: 'deps'}) || []
-                const depmap = await synth.getAttribute({name, attribute: 'depmap'}) || {}
-                const actualDeps = deps.map(dep => depmap[dep])
+        for (const seed of seeds) {
+            const deps = await getDependencies(seed, {
+                getShallowDependencies: async name => {
+                    if (!synth.has(name)) {
+                        return []
+                    }
+                    const rawDeps = await synth.getAttribute({name, attribute: 'deps'}) || []
+                    const depmap = await synth.getAttribute({name, attribute: 'depmap'}) || {}
+                    const deps = rawDeps.map(([dep]) => dep)
+                    const impliedDeps = deps.map((dep) => dep.replace(/^@\//, ''))
+                    const mappedDeps = deps.map((dep) => depmap[dep])
 
-                // include an explicity importmap if necessary.
-                if (JSON.stringify(deps) != JSON.stringify(actualDeps)) {
-                    units[`importmap[${name}]`] = {type: "json", source: JSON.stringify(depmap)}
+                    // include an explicity importmap if necessary.
+                    if (JSON.stringify(impliedDeps) != JSON.stringify(mappedDeps)) {
+                        units[`importmap[${name}]`] = {type: "json", source: JSON.stringify(depmap)}
+                    }
+                    return mappedDeps
+                },
+            })
+
+            for (const dep of Object.keys(deps)) {
+                if (!synth.has(dep)) {
+                    console.warn(`synth does not have a unit named '${dep}', skipping`)
+                    continue
                 }
-                return actualDeps
-            },
-        })
-
-        for (const dep of Object.keys(deps)) {
-            units[dep] = synth.read(dep)
+                units[dep] = synth.read(dep)
+            }
         }
     }
 
@@ -54,7 +72,7 @@ export default async function (handlerInputs) {
             continue
         }
         lines.push(`###### ${name}`)
-        lines.push('``` ' + type)
+        lines.push('```' + (type || ''))
         lines.push(source)
         lines.push('```')
         lines.push('')
