@@ -1,52 +1,31 @@
 export default class BFS {
     constructor() {
-        // inbox is for fast O(1) additions (enqueue).
-        this.inbox = [];
-        // outbox is for fast O(1) removals (dequeue).
-        this.outbox = [];
+        this.tasks = []; // Single array queue
     }
-
-    /**
-     * Adds a task to the queue in O(1) time.
-     * @param {object} task The step object to add.
-     */
     add(task) {
-        this.inbox.push(task);
+        this.tasks.push(task); // Enqueue at the end
     }
-
     addAll(tasks) {
+        // Add in source order (since shift takes from front)
         for (const task of tasks) {
             this.add(task);
         }
     }
-
-    /**
-     * Returns the next task from the queue in amortized O(1) time.
-     * @returns {object | undefined} The next task or undefined if the queue is empty.
-     */
-    next() {
-        // If the outbox is empty, transfer items from the inbox.
-        if (this.outbox.length === 0) {
-            // If the inbox is also empty, there's nothing to do.
-            if (this.inbox.length === 0) {
-                return undefined;
-            }
-            // This is the O(n) operation, but it only runs occasionally.
-            while (this.inbox.length > 0) {
-                this.outbox.push(this.inbox.pop());
-            }
+    resume(tasks) {
+        this.tasks.push(...tasks)
+    }
+    pause(pred) {
+        const keep = []
+        const paused = []
+        for (const task of this.tasks) {
+            (pred(task) ? paused : keep).push(task)
         }
-
-        // The outbox now contains the oldest items, ready for a fast pop.
-        return this.outbox.pop();
+        this.tasks = keep
+        return paused
     }
-
-    size() {
-        return this.inbox.length + this.outbox.length
+    next() {
+        return this.tasks.shift(); // Dequeue from the front (FIFO)
     }
-
-    clear() {
-        this.inbox = []
-        this.outputs = []
-    }
+    size() { return this.tasks.length; }
+    clear() { this.tasks = []; }
 }

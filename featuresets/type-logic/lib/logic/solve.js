@@ -9,6 +9,7 @@ import {
     configTag,
     nameTag,
     generatedSourceTag,
+    resolverTags,
 } from '@/lib/logic/tags'
 
 /**
@@ -21,8 +22,9 @@ function createConfiguredQuery(config) {
     // This is the actual async generator that will be returned.
     const query = function* (...args) {
         const Goal = GoalSeries({defaultSchedulerClass: config.defaultSchedulerClass})
+        const scheduler = config.schedulerClass ? new (config.schedulerClass)() : undefined
         const goal = new Goal({
-            scheduler: config.scheduler,
+            scheduler,
             resolver: config.resolver,
             args,
             tracer: config.tracer,
@@ -32,6 +34,21 @@ function createConfiguredQuery(config) {
             yield resolveSolution(args, solution)
         }
     };
+
+    query.bind = (() => {
+        const originalBind = query.bind;
+        const newBind = function (...bindArgs) {
+            const fn = originalBind.apply(this, bindArgs)
+            for (const tag in resolverTags) {
+                if (tag in this) {
+                    fn[tag] = this[tag]
+                }
+            }
+            fn.bind = newBind
+            return fn
+        }
+        return newBind
+    })();
 
     // Attach metadata and the raw resolver using the exported tags.
     query[predicatesTag] = config.predicates;

@@ -1,4 +1,5 @@
 import DFS from "@/lib/logic/schedulers/DFS";
+import {configTag} from "@/lib/logic/tags"
 
 export default function GoalSeries({nextID=1, defaultSchedulerClass=DFS, defaultTracer}={}) {
     // A "Goal" is a context object for a single query instance (e.g., `path(X, 'd')`).
@@ -18,20 +19,104 @@ export default function GoalSeries({nextID=1, defaultSchedulerClass=DFS, default
             this.solutionsFound = 0
 
             this.parent = parent
+            this.notify = undefined
+            this.depth = parent ? parent.depth + 1 : 0
+            this.scheduledTasks = 0
+            this.pausedTasks = []
             this.key = key
 
             // A "task" is a single unit of work for a resolver.
             // It represents one attempt to advance one possible proof path.
             // The first time a path is tried, we don't have a solution, or feedback, or a resume token.
-            this.scheduler.add({})
+            this.schedule({trace: "CALL"})
         }
 
         schedule(task) {
-            this.scheduler.add(task)
+            this.scheduler.add({goal: this, task})
+            this.scheduledTasks++
         }
 
         scheduleAll(tasks) {
-            this.scheduler.addAll(tasks)
+            this.scheduler.addAll(tasks.map(task => ({goal: this, task})))
+            this.scheduledTasks += tasks.length
+        }
+
+        pauseTasks() {
+            if (this.pausedTasks || this.isComplete) return;
+
+            const all = new Set()
+            const findAllSubgoals = (goal) => {
+                if (all.has(goal)) {
+                    return
+                }
+                if (!goal.pausedTasks) {
+                    all.add(goal)
+                }
+                for (const subgoal of goal.subgoals.values()) {
+                    findAllSubgoals(subgoal)
+                }
+            }
+            findAllSubgoals(this)
+
+            const paused = this.scheduler.pause(task => all.has(task.goal))
+            for (const task of paused) {
+                const goal = task.goal;
+                goal.scheduledTasks--;
+            }
+            this.pausedTasks = paused;
+
+            for (const goal of all) {
+                if (goal.scheduledTasks !== 0) {
+                    throw new Error(`paused but have ${goal.scheduledTasks} tasks unaccounted for on a goal`)
+                }
+            }
+        }
+
+        resumeTasks() {
+            if (!this.pausedTasks) {
+                return this
+            }
+
+            const tasks = this.pausedTasks
+            this.pausedTasks = undefined
+
+            if (tasks.length > 0) {
+                this.scheduler.resume(tasks)
+                for (const task of tasks) {
+                    task.goal.scheduledTasks++
+                }
+            }
+        }
+
+        continueAsSubgoal(notify) {
+            if (this.notify) {
+                throw new Error("internal error: already have a notify value for this subgoal")
+            }
+            this.notify = notify
+            this.resumeTasks()
+            return this
+        }
+
+        checkCompleted() {
+            if (this.isComplete) return true;
+
+            if (this.scheduledTasks > 0) {
+                return false
+            }
+
+            let subgoalsCompleted = true
+            for (const subgoal of this.subgoals.values()) {
+                if (!subgoal.checkCompleted()) {
+                    subgoalsCompleted = false
+                }
+            }
+
+            if (subgoalsCompleted) {
+                this.completed()
+                return true
+            }
+
+            return false
         }
 
         // Marks a goal as complete, preventing any further work and discarding pending steps.
@@ -39,9 +124,10 @@ export default function GoalSeries({nextID=1, defaultSchedulerClass=DFS, default
             if (this.isComplete) return;
             this.isComplete = true;
 
-            this.generator.return()
+            // first pause, then mark completed
+            this.pauseTasks()
 
-            this.scheduler.clear();
+            this.generator.return()
 
             // Recursively complete all of its own sub-goals.
             for (const subgoal of this.subgoals.values()) {
@@ -50,32 +136,48 @@ export default function GoalSeries({nextID=1, defaultSchedulerClass=DFS, default
             this.subgoals.clear();
         }
 
-        next() {
-            const task = this.scheduler.next()
-            if (task) {
-                const nextResult = this.generator.next(task);
-                this.tracer?.(this, 'REDO', task);
-                return nextResult.done ? { type: 'fail' } : nextResult.value;
+        #subgoalSchedule(resume, subgoal) {
+            const notify = {goal: this, resume}
+            if (subgoal.scheduler === this.scheduler) {
+                // if the scheduler is the same, put our notify details in
+                subgoal.continueAsSubgoal(notify)
+            } else {
+                // if the subgoal uses a different scheduler, then we use our scheduler to decide when to delegate to its scheduler
+                // but don't set its notify until we get there
+                this.schedule({subgoal, notify})
             }
-            return undefined
+        }
+
+        #resumeWithSubgoalSolution(resumeForSubgoalSolution, subgoal, subgoalSolution) {
+            let subgoalRedoKey
+            if (subgoal.isComplete) {
+                // remove the completed subgoal from the parent
+                this.subgoals.delete(subgoal.key)
+            } else {
+                subgoalRedoKey = subgoal.key
+            }
+
+            this.schedule({resume: resumeForSubgoalSolution, subgoalSolution, subgoalRedoKey})
         }
 
         subgoalCall(resume, resolver, args, tracer) {
             const key = Symbol()
-            const subgoal = new Goal({ parent: this, key, resolver, args, tracer: tracer || this.tracer});
+            const schedulerClass = resolver[configTag]?.schedulerClass
+            const scheduler = schedulerClass ? new schedulerClass() : this.scheduler
+            const subgoal = new Goal({ parent: this, key, resolver, scheduler, args, tracer: tracer || this.tracer });
             this.subgoals.set(key, subgoal);
-            this.resumeForSubgoalSolution = resume
-            return subgoal
+            this.#subgoalSchedule(resume, subgoal)
         }
 
         subgoalRedo(resume, key) {
             const subgoal = this.subgoals.get(key);
+            subgoal.tracer?.(subgoal, 'REDO')
             // update our resume token, then switch to subgoal
-            this.resumeForSubgoalSolution = resume;
             if (!subgoal || subgoal.isComplete) {
-                return this.#resumeWithSubgoalSolution(subgoal, undefined)
+                subgoal.tracer?.(subgoal, 'FAIL')
+                this.#resumeWithSubgoalSolution(resume, subgoal, undefined)
             } else {
-                return subgoal;
+                this.#subgoalSchedule(resume, subgoal)
             }
         }
 
@@ -85,36 +187,21 @@ export default function GoalSeries({nextID=1, defaultSchedulerClass=DFS, default
                 subgoal.completed();
                 this.subgoals.delete(key);
             }
-            this.schedule({ resume });
-            return this
+            this.schedule({resume})
         }
 
         notifySolution(resume, solution) {
             if (resume) {
-                this.scheduler({ resume })
-            } else if (!solution && !this.scheduler.size()) {
-                this.completed()
-            }
-
-            return this.parent.#resumeWithSubgoalSolution(this, solution)
-        }
-
-        #resumeWithSubgoalSolution(subgoal, subgoalSolution) {
-            if (!this.resumeForSubgoalSolution) {
-                throw new Error("internal error: cannot resume a this without a resume key")
-            }
-
-            let subgoalRedoKey
-            if (subgoal.isComplete) {
-                // remove the completed subgoal from the parent
-                this.subgoals.delete(subgoal.key)
+                this.schedule({ resume })
             } else {
-                subgoalRedoKey = subgoal.key
+                this.checkCompleted()
             }
 
-            this.scheduler.add({resume: this.resumeForSubgoalSolution, subgoalSolution, subgoalRedoKey})
-            this.resumeForSubgoalSolution = undefined
-            return this
+            this.pauseTasks()
+            const {goal: parentGoal, resume: parentResume} = this.notify
+            this.notify = undefined
+            parentGoal.#resumeWithSubgoalSolution(parentResume, this, solution)
+            return parentGoal
         }
 
         *solve() {
@@ -122,20 +209,32 @@ export default function GoalSeries({nextID=1, defaultSchedulerClass=DFS, default
 
             while (true) {
                 let signal
+                let task
 
-                // A resolver generator should always yield a signal. If the goal is complete, or the generator terminates, its path has failed.
-                if (goal.isComplete) {
-                    signal = { type: 'fail' }
-                } else {
-                    signal = goal.next()
-                    if (!signal) {
-                        if (goal.parent) {
-                            goal = goal.notifySolution(undefined, undefined)
-                            continue
-                        } else {
-                            break
-                        }
+                ({goal, task} = (goal.scheduler.next() ?? {goal}));
+                
+                if (task) {
+                    goal.scheduledTasks--;
+                    if (task.subgoal) {
+                        // switch to the goal it's for
+                        goal = task.subgoal
+                        goal.continueAsSubgoal(notify)
+                        continue
                     }
+
+                    if (task.trace) {
+                        goal?.tracer?.(goal, task.trace)
+                    }
+
+                    // if it's our own task, do it
+                    const nextResult = goal.generator.next(task);
+                    if (nextResult.done) {
+                        throw new Error("generator should not have exited")
+                    } else {
+                        signal = nextResult.value;
+                    }
+                } else {
+                    signal = {type: 'fail'}
                 }
 
                 switch (signal.type) {
@@ -143,17 +242,17 @@ export default function GoalSeries({nextID=1, defaultSchedulerClass=DFS, default
                         switch (signal.op || 'call') {
                             case 'call': { // The resolver needs a solution from a subgoal.
                                 const {resume, resolver, goal: args, tracer} = signal;
-                                goal = goal.subgoalCall(resume, resolver, args, tracer)
+                                goal.subgoalCall(resume, resolver, args, tracer)
                                 break;
                             }
                             case 'redo': { // signal should have {key, resume}
                                 const {resume, key} = signal
-                                goal = goal.subgoalRedo(resume, key)
+                                goal.subgoalRedo(resume, key)
                                 break;
                             }
                             case 'done': {
                                 const {resume, key} = signal
-                                goal = goal.subgoalDone(resume, key);
+                                goal.subgoalDone(resume, key)
                                 break;
                             }
                         }
@@ -161,8 +260,11 @@ export default function GoalSeries({nextID=1, defaultSchedulerClass=DFS, default
                     }
 
                     case 'fork': { // The resolver found multiple alternative paths.
-                        const {forks} = signal
-                        goal.scheduleAll(forks)
+                        const {resume, forks} = signal;
+                        goal.scheduleAll(forks);
+                        if (resume) {
+                            goal.schedule({ resume });
+                        }
                         break;
                     }
 
@@ -171,11 +273,17 @@ export default function GoalSeries({nextID=1, defaultSchedulerClass=DFS, default
                         goal.solutionsFound++;
                         goal.tracer?.(goal, 'EXIT', solution);
 
-                        if (goal.parent) {
+                        if (goal.notify) {
                             // If this was a sub-goal, resume its parent with the solution.
                             goal = goal.notifySolution(resume, solution)
+                            continue
+                        }
+                        
+                        if (goal.parent) {
+                            throw new Error("internal error: subgoal produced a solution but notify is not set")
                         } else {
                             // This is a top-level solution. Yield it to the user.
+                            // TODO use the outcome as feedback.
                             const outcome = yield solution;
 
                             // If more solutions might exist for this path, schedule the next one.
@@ -183,20 +291,23 @@ export default function GoalSeries({nextID=1, defaultSchedulerClass=DFS, default
                                 goal.schedule({ resume });
                             }
 
-                            // If the user sends back feedback, schedule a task to deliver it.
-                            if (outcome && feedbackToken) {
-                                goal.schedule({
-                                    resume: feedbackToken,
-                                    solution,
-                                    outcome,
-                                });
+                            if (!goal.checkCompleted()) {
+                                goal.tracer?.(goal, 'REDO')
                             }
                         }
                         break;
                     }
 
                     case 'fail': {
-                        goal.tracer?.(goal, 'FAIL');
+                        if (goal.checkCompleted()) {
+                            goal.tracer?.(goal, 'FAIL');
+                            if (goal.notify) {
+                                goal = goal.notifySolution(undefined, undefined)
+                                continue; // Let loop continue with parent context
+                            }
+
+                            return;
+                        }
                         break;
                     }
                 }

@@ -17,6 +17,20 @@ export default class DFS {
         }
     }
 
+    resume(tasks) {
+        this.tasks.push(...tasks)
+    }
+
+    pause(pred) {
+        const keep = []
+        const paused = []
+        for (const task of this.tasks) {
+            (pred(task) ? paused : keep).push(task)
+        }
+        this.tasks = keep
+        return paused
+    }
+
     /**
      * Returns the next task from the active queue.
      * @returns {object | null} The next task or null if the queue is empty.

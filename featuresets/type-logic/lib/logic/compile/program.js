@@ -3,7 +3,7 @@ import analyzeProgram from '@/lib/logic/compile/analyze/program';
 import transformProgram from '@/lib/logic/compile/transform/program';
 import generatePredicateResolver from '@/lib/logic/compile/generate/predicate';
 import unify, { resolve } from '@/lib/logic/unify';
-import { resolverTag } from '@/lib/logic/tags';
+import { resolverTags, resolverTag, nameTag } from '@/lib/logic/tags';
 import ArrayPattern from '@/lib/logic/unify/ArrayPattern';
 import ObjectPattern from '@/lib/logic/unify/ObjectPattern';
 
@@ -42,7 +42,7 @@ export default function transpile(sourceCode) {
 import unify, { resolve } from '@/lib/logic/unify';
 import ArrayPattern from '@/lib/logic/unify/ArrayPattern';
 import ObjectPattern from '@/lib/logic/unify/ObjectPattern';
-import { resolverTag } from '@/lib/logic/tags';
+import { resolverTags, resolverTag, nameTag } from '@/lib/logic/tags';
 
 ${resolverCode}
 
@@ -61,7 +61,7 @@ ${exports}
         .join(',\n        ');
 
         transpiledCode = `(function(utils) {
-    const { unify, resolve, resolverTag, ArrayPattern, ObjectPattern } = utils;
+    const { unify, resolve, resolverTags, resolverTag, nameTag, ArrayPattern, ObjectPattern } = utils;
 
     ${resolverCode}
 
@@ -76,7 +76,7 @@ ${exports}
 
     return {
         transpiledCode,
-        utils: { unify, resolve, resolverTag, ArrayPattern, ObjectPattern },
+        utils: { unify, resolve, resolverTags, resolverTag, nameTag, ArrayPattern, ObjectPattern },
         predicates,
     };
 }

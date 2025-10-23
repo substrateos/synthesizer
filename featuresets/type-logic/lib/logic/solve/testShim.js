@@ -1,4 +1,5 @@
-import solve, { predicatesTag, nameTag, resolverTag, generatedSourceTag } from '@/lib/logic/solve';
+import solve from '@/lib/logic/solve';
+import { predicatesTag, nameTag, generatedSourceTag } from '@/lib/logic/tags';
 import createVars from '@/lib/logic/vars';
 import DFS from "@/lib/logic/schedulers/DFS";
 import BFS from "@/lib/logic/schedulers/BFS";
@@ -9,27 +10,39 @@ const schedulers = { DFS, BFS };
  * based on the new four-port (CALL, REDO, EXIT, FAIL) protocol.
  */
 function createTracer(trace) {
+    // Store the last successful exit bindings for each goal ID.
+    const lastExitBindings = new Map();
+
     return (goal, eventType, payload) => {
+        // Store bindings on EXIT
+        if (eventType === 'EXIT') {
+            lastExitBindings.set(goal.id, payload);
+        }
+
         // Assemble the rich event object for the formatter.
         const event = {
             id: goal.id,
             type: eventType,
-            // depth: goal.path.length,
-            depth: 0,
+            depth: goal.depth,
             predicate: goal.resolver[nameTag],
             args: goal.args,
-            payload,
+            payload, // Used for EXIT
+            lastExit: lastExitBindings.get(goal.id), // Used for REDO and FAIL
         };
 
         trace.push(formatTraceEntry(event));
         
+        // Clean up map on final FAIL to save memory
+        if (eventType === 'FAIL') {
+            lastExitBindings.delete(goal.id);
+        }
+
         // Safety brake to prevent infinite loops from crashing the test environment.
         if (trace.length > 1000) {
             throw new Error(`Trace has grown to > 1000 entries. Assuming infinite loop.`);
         }
     };
 }
-
 /**
  * Converts a standardized trace event object into a human-readable, Prolog-style string.
  * This version includes a circular reference check to prevent infinite loops.
@@ -46,10 +59,19 @@ function formatTraceEntry(event) {
     const argToString = (arg) => {
         // --- Handle non-objects and primitives first ---
         if (typeof arg === 'symbol') {
+            let bindings;
+            // CALL uses no bindings (shows 'X')
+            // EXIT uses the current solution payload.
+            if (event.type === 'EXIT') bindings = event.payload;
+            // REDO and FAIL use the *last known successful* bindings.
+            else if (event.type === 'REDO') bindings = event.lastExit;
+            // Hack: Sub-goal FAILs use last exit, top-level FAIL uses original args.
+            else if (event.type === 'FAIL' && event.depth > 0) bindings = event.lastExit;
+
             // On EXIT, try to show the bound value.
-            if (event.type === 'EXIT' && event.solution && Object.hasOwn(event.solution, arg)) {
+            if (bindings && Object.hasOwn(bindings, arg)) {
                 // The recursive call must also be to this helper.
-                return argToString(event.solution[arg]);
+                return argToString(bindings[arg].value);
             }
             // Otherwise, show the variable name.
             return arg.description;
@@ -155,6 +177,7 @@ export default function({source, queries, configs}) {
             const schedulerClass = schedulers[queryConfig.scheduler];
             if (schedulerClass) {
                 configToApply.defaultSchedulerClass = schedulerClass;
+                configToApply.schedulerClass = schedulerClass;
             } else {
                 allSolutions[queryName] = [{ error: `Scheduler not found: ${queryConfig.scheduler}` }];
                 continue;

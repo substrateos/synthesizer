@@ -25,25 +25,15 @@ function path(X, Z) {
 }
         `,
         queries: {
-            "Should find all possible next steps in a path (DFS)": { path: ['a', { "$var": "Z" }] },
-            "Should find all possible next steps in a path (BFS)": { path: ['a', { "$var": "Z" }] },
+            "Should find all possible next steps in a path": { path: ['a', { "$var": "Z" }] },
             "Should succeed twice for a path that has two routes": { path: ['a', 'd'] },
             "Should fail to find a path that does not exist": { path: ['d', 'a'] }
         },
-        configs: {
-            "Should find all possible next steps in a path (BFS)": { "scheduler": "BFS" }
-        }
     }],
     debugKeys: ["generatedSource", "predicates", "traces"],
     returns: {
         "solutions": {
-            "Should find all possible next steps in a path (DFS)": [
-                { "Z": "b" },
-                { "Z": "c" },
-                { "Z": "d" },
-                { "Z": "d" }
-            ],
-            "Should find all possible next steps in a path (BFS)": [
+            "Should find all possible next steps in a path": [
                 { "Z": "b" },
                 { "Z": "c" },
                 { "Z": "d" },

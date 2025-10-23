@@ -65,13 +65,13 @@ case 1: {
             yieldValue = {
                 type: 'fork',
                 forks: [
-                    { // Path 1: Continue forward with the current solution.
-                        resume: { ${resumeTokenProperties}, pc: ${pc + 1}, bindings: { ...bindings, ...subgoalSolution } },
-                    },
-                    { // Path 2: Backtrack into the subgoal later to get the next solution.
+                    { // Backtrack into the subgoal later to get the next solution.
                         resume: { ${resumeTokenProperties}, pc: ${pc}, oppc: 0, subgoalRedoKey: subgoalRedoKey },
                     },
                 ],
+                resume: { // Continue forward with the current solution.
+                    ${resumeTokenProperties}, pc: ${pc + 1}, bindings: { ...bindings, ...subgoalSolution },
+                },
             };
             continue;
         } else {

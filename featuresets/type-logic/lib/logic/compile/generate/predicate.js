@@ -46,5 +46,21 @@ function* ${mangledName}(scope, ...goal) {
             }
         }
     }
-}`;
+}
+${mangledName}[nameTag] = '${name}';
+${mangledName}.bind = (() => {
+    const originalBind = ${mangledName}.bind;
+    const newBind = function (...bindArgs) {
+        const fn = originalBind.apply(this, bindArgs)
+        for (const tag of resolverTags) {
+            if (tag in this) {
+                fn[tag] = this[tag]
+            }
+        }
+        fn.bind = newBind
+        return fn
+    }
+    return newBind
+})();
+`;
 }
