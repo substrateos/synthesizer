@@ -1,4 +1,4 @@
-import transformBuiltins from '@/lib/logic/compile/transform/globals/Builtins';
+import transformBuiltins from '@/lib/logic/compile/transform/globals/Logic';
 
 /**
  * The main dispatcher for global functions and built-in methods. It detects
@@ -9,11 +9,19 @@ import transformBuiltins from '@/lib/logic/compile/transform/globals/Builtins';
  * @returns {object|null} An IR goal object or null if no match is found.
  */
 export default (expr, context) => {
-    // Check if it's a namespaced call, e.g., `Builtins.something(...)`
+    // Check if it's a namespaced call, e.g., `Logic.something(...)`
     if (expr.callee.type === 'MemberExpression') {
         const namespace = expr.callee.object.name;
-        if (namespace === 'Builtins') {
-            return transformBuiltins(expr, context);
+        const method = expr.callee.property.name;
+        if (namespace === 'Logic') {
+            const result = transformBuiltins(expr, context);
+            if (result) {
+                return result
+            }
+
+            throw new Error(`Undefined built-in: Logic.${method}`);
         }
+
+        throw new Error(`Unsupported MemberExpression as goal: ${namespace}.${method}`);
     }
 };

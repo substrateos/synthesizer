@@ -40,7 +40,7 @@ This language is a hybrid that combines the declarative power of logic programmi
 ### Control Flow & Built-ins
 
   * **Negation as Failure (`!`)**: The `!` operator can be used on a subgoal. The goal succeeds only if the negated sub-goal fails to find any solutions.
-  * **`Builtins.findall/3`**: A built-in predicate to collect all solutions for a sub-goal into a single list.
+  * **`Logic.findall`**: A built-in predicate to collect all solutions for a sub-goal into a single list.
 
 ### Execution Model
 
@@ -302,9 +302,9 @@ console.log([...can_vote(20)]);
 
 -----
 
-### `Builtins.findall/3`
+### `Logic.findall`
 
-This shows how to use `Builtins.findall` to collect all possible solutions for a sub-goal into a single list.
+This shows how to use `Logic.findall` to collect all possible solutions for a sub-goal into a single list.
 
 ```javascript
 const { get_all_items } = logic.solve`
@@ -316,8 +316,8 @@ const { get_all_items } = logic.solve`
     // Rule: Get all items for a group
     function get_all_items(Group, List) {
         var I;
-        // Builtins.findall(Template, Goal, ResultList)
-        Builtins.findall(I, item(Group, I), List);
+        // Logic.findall(Template, Goal, ResultList)
+        Logic.findall(I, item(Group, I), List);
     }
 `;
 

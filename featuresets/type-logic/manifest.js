@@ -20,7 +20,7 @@ export default {
         'lib/logic/solve/testShim/tests/destructuring.js',
         'lib/logic/solve/testShim/tests/tracer.js',
         'lib/logic/solve/testShim/tests/facts.js',
-        'lib/logic/solve/testShim/tests/findall.js',
+        'lib/logic/solve/testShim/tests/builtins-findall.js',
         'lib/logic/solve/testShim/tests/dynamic-subgoal.js',
         'lib/logic/solve/testShim/tests/grandparent.js',
         'lib/logic/solve/testShim/tests/negation.js',
@@ -42,7 +42,7 @@ export default {
 
         'lib/logic/compile/transform/builtins/findall.js',
         'lib/logic/compile/transform/globals.js',
-        'lib/logic/compile/transform/globals/Builtins.js',
+        'lib/logic/compile/transform/globals/Logic.js',
         'lib/logic/compile/transform/nodes/FunctionDeclaration.js',
         'lib/logic/compile/transform/nodes/UnaryExpression.js',
         'lib/logic/compile/transform/nodes/LogicalExpression.js',

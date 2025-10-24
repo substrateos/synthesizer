@@ -4,20 +4,34 @@ import {
 } from '@/lib/logic/tags'
 
 /**
+ * Recursively finds all unique symbols (logic variables) in a data structure.
+ */
+export function* symbolsIn(term, symbols = new Set()) {
+    if (typeof term === 'symbol') {
+        if (!symbols.has(term)) {
+            symbols.add(term)
+            yield term
+        }
+    } else if (Array.isArray(term)) {
+        for (const element of term) {
+            yield *symbolsIn(element, symbols)
+        }
+    } else if (typeof term === 'object' && term !== null) {
+        for (const value of Object.values(term)) {
+            yield *symbolsIn(value, symbols)
+        }
+    }
+}
+
+/**
  * Recursively checks if a structure contains a specific symbol (the "occurs check").
  * @param {*} structure The data structure to search.
  * @param {Symbol} sym The symbol to search for.
  * @returns {boolean} True if the symbol is found within the structure.
  */
 function contains(structure, sym) {
-    if (structure === sym) return true;
-    
-    if (Array.isArray(structure)) {
-        return structure.some(element => contains(element, sym));
-    }
-    
-    if (typeof structure === 'object' && structure !== null) {
-        return Object.values(structure).some(value => contains(value, sym));
+    for (const symbol of symbolsIn(structure)) {
+        if (symbol === sym) return true;
     }
     
     return false;
@@ -151,3 +165,9 @@ export default function unify(term1, term2, bindings, location) {
 
     return null;
 }
+
+Object.assign(unify, {
+    symbolsIn,
+    resolve,
+    ground,
+})

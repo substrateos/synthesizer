@@ -16,7 +16,7 @@ function member(g='b', m=3) {}
 // Rule
 function find_all_members(Group, Members) {
     var X;
-    Builtins.findall(X, member(Group, X), Members);
+    Logic.findall(X, member(Group, X), Members);
 }
                 `,
                 "queries": {

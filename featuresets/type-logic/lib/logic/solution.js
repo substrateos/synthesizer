@@ -1,18 +1,4 @@
-import { resolve, ground } from "@/lib/logic/unify";
-
-/**
- * Recursively finds all unique symbols (logic variables) in a data structure.
- */
-function findSymbols(term, symbols = new Set()) {
-    if (typeof term === 'symbol') {
-        symbols.add(term);
-    } else if (Array.isArray(term)) {
-        term.forEach(element => findSymbols(element, symbols));
-    } else if (typeof term === 'object' && term !== null) {
-        Object.values(term).forEach(value => findSymbols(value, symbols));
-    }
-    return symbols;
-}
+import { resolve, ground, symbolsIn } from "@/lib/logic/unify";
 
 /**
  * A simplified version of resolveSolution that returns a simple object
@@ -20,7 +6,7 @@ function findSymbols(term, symbols = new Set()) {
  */
 export default function resolveSolutionValues(goal, finalBindings) {
     const solution = {};
-    const queryVariables = findSymbols(goal);
+    const queryVariables = [...symbolsIn(goal)];
 
     for (const variable of queryVariables) {
         const originalValue = resolve(variable, finalBindings).value;

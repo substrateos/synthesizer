@@ -1,5 +1,4 @@
 import generateClause from '@/lib/logic/compile/generate/clause';
-import generateSubgoalBlock from '@/lib/logic/compile/generate/blocks/subgoal';
 
 /**
  * Generates the unified resolver for a predicate.

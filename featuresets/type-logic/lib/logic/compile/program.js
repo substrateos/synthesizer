@@ -61,7 +61,7 @@ ${exports}
         .join(',\n        ');
 
         transpiledCode = `(function(utils) {
-    const { unify, resolve, resolverTags, resolverTag, nameTag, ArrayPattern, ObjectPattern } = utils;
+    const { unify, resolverTags, resolverTag, nameTag, ArrayPattern, ObjectPattern } = utils;
 
     ${resolverCode}
 
