@@ -48,58 +48,57 @@ function createTracer(trace) {
  * This version includes a circular reference check to prevent infinite loops.
  */
 function formatTraceEntry(event) {
-    // A Set to track objects and arrays we've already started to format
-    // for this specific trace entry. This prevents infinite recursion.
     const visited = new Set();
 
-    /**
-     * Helper to recursively format arguments for printing.
-     * If this is an EXIT event, it resolves variables against the solution.
-     */
     const argToString = (arg) => {
-        // --- Handle non-objects and primitives first ---
+        // --- Handle Symbols (Variables) ---
         if (typeof arg === 'symbol') {
-            let bindings;
-            // CALL uses no bindings (shows 'X')
-            // EXIT uses the current solution payload.
-            if (event.type === 'EXIT') bindings = event.payload;
-            // REDO and FAIL use the *last known successful* bindings.
-            else if (event.type === 'REDO') bindings = event.lastExit;
-            // Hack: Sub-goal FAILs use last exit, top-level FAIL uses original args.
-            else if (event.type === 'FAIL' && event.depth > 0) bindings = event.lastExit;
-
-            // On EXIT, try to show the bound value.
-            if (bindings && Object.hasOwn(bindings, arg)) {
-                // The recursive call must also be to this helper.
-                return argToString(bindings[arg].value);
+            const varName = arg.description;
+            let bindings; // Variable to hold the correct bindings object
+            if (event.type === 'EXIT') {
+                bindings = event.payload; // Use current solution for EXIT
+            } else if (event.type === 'REDO' || (event.type === 'FAIL' && event.depth > 0)) {
+                // Use last successful exit for REDO and non-top-level FAIL
+                bindings = event.lastExit;
             }
-            // Otherwise, show the variable name.
-            return arg.description;
+            // CALL and top-level FAIL will leave bindings undefined here
+
+            // If bindings are available and the variable is bound...
+            if (bindings && Object.hasOwn(bindings, arg)) {
+                const boundValue = bindings[arg].value;
+                if (visited.has(boundValue)) {
+                    return `${varName} = [Circular]`;
+                }
+                // Format as "Var = Value" for EXIT, REDO, FAIL
+                return `${varName} = ${argToString(boundValue)}`; // Apply consistent format
+            }
+            // Otherwise (CALL, top-level FAIL, or unbound var), show just the name
+            return varName;
         }
+
+        // --- (Rest of the function remains the same: Primitives, Objects, Arrays, Circularity) ---
         if (typeof arg === 'string') return `'${arg}'`;
-        if (typeof arg !== 'object' || arg === null) {
-            return String(arg);
-        }
-
-        // --- Circular reference check for objects and arrays ---
-        if (visited.has(arg)) {
-            return '[Circular]';
-        }
+        if (typeof arg !== 'object' || arg === null) return String(arg);
+        if (visited.has(arg)) return '[Circular]';
         visited.add(arg);
-
-        // --- Recursive formatting for objects and arrays ---
+        let result;
         if (Array.isArray(arg)) {
-            return `[${arg.map(argToString).join(', ')}]`;
+            result = `[${arg.map(argToString).join(', ')}]`;
+        } else {
+             if (arg.constructor !== Object && typeof arg.toString === 'function' && arg.toString !== Object.prototype.toString) {
+                 result = arg.toString();
+            } else {
+                const body = Object.entries(arg).map(([k,v]) => `${k}: ${argToString(v)}`).join(', ');
+                result = `{${body}}`;
+            }
         }
-
-        const body = Object.entries(arg).map(([k,v]) => `${k}: ${argToString(v)}`).join(', ');
-        return `{${body}}`;
+        return result;
     };
 
     const indentation = '  '.repeat(event.depth || 0);
     const port = event.type.padEnd(4);
     const traceId = `(${event.id}) `;
-    const goalStr = `${event.predicate}(${event.args.map(argToString).join(', ')})`;
+    const goalStr = `${event.predicate}(${event.args.map(arg => argToString(arg)).join(', ')})`;
 
     return `${indentation}${port}: ${traceId}${goalStr}`;
 }

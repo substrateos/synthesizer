@@ -17,7 +17,11 @@ const findDeclaredVars = (node) => {
             if (!pattern) return;
             if (pattern.type === 'Identifier') declaredVars.add(pattern.name);
             else if (pattern.type === 'ArrayPattern') pattern.elements.forEach(collectFromPattern);
-            else if (pattern.type === 'ObjectPattern') pattern.properties.forEach(p => collectFromPattern(p.value));
+            else if (pattern.type === 'ObjectPattern') pattern.properties.forEach(p => {
+                collectFromPattern(p.value)
+                collectFromPattern(p) // to walk RestElement, if any
+            });
+            else if (pattern.type === 'Property') collectFromPattern(pattern.argument);
             else if (pattern.type === 'RestElement') collectFromPattern(pattern.argument);
             else if (pattern.type === 'AssignmentPattern') collectFromPattern(pattern.left);
         };
@@ -26,7 +30,7 @@ const findDeclaredVars = (node) => {
         // Find variables in the rule body (`var` declarations)
         visit(node.body, {
             VariableDeclarator(decl) {
-                if (decl.id.type === 'Identifier') declaredVars.add(decl.id.name);
+                collectFromPattern(decl.id)
             }
         });
     }
