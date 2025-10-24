@@ -20,6 +20,7 @@ export default {
         'lib/logic/solve/testShim/tests/destructuring.js',
         'lib/logic/solve/testShim/tests/tracer.js',
         'lib/logic/solve/testShim/tests/facts.js',
+        'lib/logic/solve/testShim/tests/builtins-is_ground.js',
         'lib/logic/solve/testShim/tests/builtins-findall.js',
         'lib/logic/solve/testShim/tests/dynamic-subgoal.js',
         'lib/logic/solve/testShim/tests/grandparent.js',
@@ -41,6 +42,7 @@ export default {
         'lib/logic/compile/analyze/program.js',
 
         'lib/logic/compile/transform/builtins/findall.js',
+        'lib/logic/compile/transform/builtins/is_ground.js',
         'lib/logic/compile/transform/globals.js',
         'lib/logic/compile/transform/globals/Logic.js',
         'lib/logic/compile/transform/nodes/FunctionDeclaration.js',
@@ -60,6 +62,7 @@ export default {
         'lib/logic/compile/generate/ops.js',
         'lib/logic/compile/generate/ops/compare.js',
         'lib/logic/compile/generate/ops/findall.js',
+        'lib/logic/compile/generate/ops/is_ground.js',
         'lib/logic/compile/generate/ops/js.js',
         'lib/logic/compile/generate/ops/negation.js',
         'lib/logic/compile/generate/ops/subgoal.js',

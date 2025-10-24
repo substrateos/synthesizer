@@ -24,6 +24,18 @@ export function* symbolsIn(term, symbols = new Set()) {
 }
 
 /**
+ * Checks if a term is "ground" (i.e., contains no unbound variables).
+ * @param {*} term - The term to check.
+ * @returns {boolean} True if the term is ground, false otherwise.
+ */
+export function isGround(term) {
+    for (const symbol of symbolsIn(term)) {
+        return false
+    }
+    return true
+}
+
+/**
  * Recursively checks if a structure contains a specific symbol (the "occurs check").
  * @param {*} structure The data structure to search.
  * @param {Symbol} sym The symbol to search for.
@@ -168,6 +180,7 @@ export default function unify(term1, term2, bindings, location) {
 
 Object.assign(unify, {
     symbolsIn,
+    isGround,
     resolve,
     ground,
 })

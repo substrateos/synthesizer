@@ -1,10 +1,12 @@
 import findall from '@/lib/logic/compile/transform/builtins/findall';
+import is_ground from '@/lib/logic/compile/transform/builtins/is_ground';
 
 /**
  * A dispatch table for methods on the `Logic` object.
  */
 const Logic = {
     findall,
+    is_ground,
 };
 
 /**
