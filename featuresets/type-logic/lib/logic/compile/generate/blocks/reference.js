@@ -4,7 +4,7 @@
  */
 
 // Helper to generate the code for a pattern constructor call
-function _generatePattern(nodes, isObject) {
+function _generatePattern(isObject, nodes) {
     const partsCode = [];
     let currentFixedCode = [];
 
@@ -19,8 +19,10 @@ function _generatePattern(nodes, isObject) {
         currentFixedCode = [];
     };
 
+    let hasRest = false
     for (const node of nodes) {
         if (node.type === 'RestElement' || node.type === 'SpreadElement') {
+            hasRest = true
             pushFixed(); // Push any fixed items before the rest
             partsCode.push(reference(node.argument)); // Push the rest variable (Symbol)
         } else {
@@ -36,8 +38,11 @@ function _generatePattern(nodes, isObject) {
     }
     pushFixed(); // Push any remaining fixed items
 
-    const constructor = isObject ? 'ObjectPattern' : 'ArrayPattern';
-    return `new ${constructor}(${partsCode.join(', ')})`;
+    if (hasRest || partsCode.length > 1) {
+        const ctor = isObject ? 'ObjectPattern' : 'ArrayPattern'
+        return `new ${ctor}(${partsCode.join(', ')})`;
+    }
+    return partsCode[0] || (isObject ? '{}' : '[]')
 }
 
 // Main dispatch object for different AST node types
@@ -54,38 +59,22 @@ const nodeTypes = {
 
     ArrayExpression: (node) => {
         // e.g., A = [H, ...T] or A = [1, 2]
-        const hasRest = node.elements.some(el => el.type === 'SpreadElement');
-        if (hasRest) {
-            return _generatePattern(node.elements, false); // Generate ArrayPattern code
-        }
-        // No spread, just a plain array literal
-        const elements = node.elements.map(reference).join(', ');
-        return `[${elements}]`;
+        return _generatePattern(false, node.elements);
     },
 
     ArrayPattern: (node) => {
         // e.g., function([H, ...T]) {}
-        return _generatePattern(node.elements, false); // Generate ArrayPattern code
+        return _generatePattern(false, node.elements);
     },
 
     ObjectExpression: (node) => {
         // e.g., A = {a: 1, ...Rest}
-        const hasRest = node.properties.some(p => p.type === 'SpreadElement');
-        if (hasRest) {
-            return _generatePattern(node.properties, true); // Generate ObjectPattern code
-        }
-        // No spread, just a plain object literal
-        const props = node.properties.map(prop => {
-            const key = prop.key.name || prop.key.value;
-            const value = reference(prop.value);
-            return `'${key}': ${value}`;
-        }).join(', ');
-        return `{${props}}`;
+        return _generatePattern(true, node.properties);
     },
 
     ObjectPattern: (node) => {
         // e.g., function({a: A, ...Rest}) {}
-        return _generatePattern(node.properties, true); // Generate ObjectPattern code
+        return _generatePattern(true, node.properties);
     },
 
     AssignmentPattern: (node) => {
