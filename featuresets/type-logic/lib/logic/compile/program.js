@@ -15,18 +15,18 @@ export default function transpile(sourceCode) {
 
     // --- Step 2: Analysis Pass ---
     // This pass discovers all clauses and resolves their lexical scopes.
-    const { annotatedClauseMap, isModule, exportedPredicates } = analyzeProgram(ast);
+    const { isModule, topLevelScope } = analyzeProgram(ast, sourceCode);
 
     // --- Step 3: IR Transform Pass ---
     // This pass transforms the annotated map into the final IR for codegen.
-    const predicates = transformProgram(annotatedClauseMap);
+    const predicates = transformProgram(topLevelScope);
 
     // --- Step 4: Code Generation ---
     // This pass takes the final IR and generates the JavaScript resolver code.
     let resolverCode = '';
     for (const predName in predicates) {
         const ir = predicates[predName];
-        if (ir.clauses.length > 0 || ir.fallback) {
+        if (ir.clauses.length > 0) {
             resolverCode += generatePredicateResolver(predName, ir);
         }
     }
@@ -50,14 +50,8 @@ ${resolverCode}
 ${exports}
 `;
     } else {
-        const databaseEntries = Array.from(
-            Object.values(annotatedClauseMap)
-            .filter(clause => clause.parent === null)
-            .reduce((map, clause) => {
-                map.set(clause.name, clause.mangledName);
-                return map;
-            }, new Map()))
-        .map(([localName, mangledName]) => `${localName}: ${mangledName}.bind(null, null)`)
+        const databaseEntries = [...topLevelScope.declaredPredicates.values()]
+        .map(clause => `${clause.name}: ${clause.mangledName}.bind(null, null)`)
         .join(',\n        ');
 
         transpiledCode = `(function(utils) {

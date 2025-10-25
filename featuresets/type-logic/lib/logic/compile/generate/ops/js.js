@@ -1,19 +1,24 @@
 import value from '@/lib/logic/compile/generate/blocks/value';
 
-/**
- * Recursively builds a JS expression string from an AST for computation,
- * correctly resolving all logic variables to their values.
- */
-function jsExpression(node) {
-    if (node.type === 'BinaryExpression') {
-        return `(${jsExpression(node.left)} ${node.operator} ${jsExpression(node.right)})`;
-    }
-    return value(node, 'bindings'); // Any identifier or literal is resolved to its value.
-}
+export default ({ target, rawString, logicVars }) => {
+  // 1. Get the list of argument *values* to pass to the IIFE
+  const resolvedArgValues = logicVars.map(varName => 
+    value({ type: 'Identifier', name: varName }, 'bindings')
+  );
 
-export default ({ target, expr }) => `
-// Evaluate the provided expression.
-const computedValue = ${jsExpression(expr)};
+  // 2. Use the raw string directly as the IIFE body
+  const iifeBody = rawString;
+
+  // 3. Use the logicVars list directly as the IIFE parameter names
+  const iifeParamNames = logicVars.join(', ');
+
+  return `
+// --- Logic.js IIFE ---
+// Evaluate the JS expression in a sandboxed IIFE.
+const computedValue = (function(${iifeParamNames}) {
+    return ${iifeBody};
+})(${resolvedArgValues.join(', ')});
+
 bindings = unify(${value(target, 'bindings')}, computedValue, bindings, location);
 if (bindings) {
     pc++; // Success, continue to the next goal.
@@ -24,3 +29,4 @@ if (bindings) {
     continue;
 }
 `;
+}

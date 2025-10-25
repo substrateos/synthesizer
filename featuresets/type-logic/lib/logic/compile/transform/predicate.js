@@ -1,42 +1,57 @@
 import transformFunctionDeclaration from '@/lib/logic/compile/transform/nodes/FunctionDeclaration';
 
 /**
- * Creates the IR for the special, arity-agnostic fallback clause.
- * This clause is "headless" and its body contains a single `subgoal` op.
+ * Creates the IR for the special fallback clause used for shadowing.
+ * This represents calling the shadowed (outer) predicate.
+ * @param {PredicateDefinition} predicateDef - Definition of the predicate adding the fallback.
+ * @returns {object} The IR for the fallback clause.
  */
-function createFallbackClause(name, shadowedName) {
+function createFallbackClause(predicateDef) {
+    // Generate a unique mangled name for the fallback clause itself
+    const fallbackMangledName = "fallback_" + predicateDef.mangledName;
+
     return {
-        name: name,
-        declaredVars: [],
+        // Properties expected by generateClause
+        type: 'rule',
+        name: predicateDef.name, // The original predicate name
+        mangledName: fallbackMangledName, // Unique ID for this fallback clause
+        shadows: null, // The fallback clause itself doesn't shadow
+        declaredVars: [], // No new logic variables
+        // Body: Call the shadowed predicate
         body: [{
             type: 'subgoal',
-            resolverName: shadowedName,
-            isLexicalChild: false,
-            goalArgs: 'goal', // Special instruction to pass the original `goal` array through.
-            call: {}, // Dummy object to satisfy the op's signature.
+            resolverName: predicateDef.shadows, // Mangled name of the predicate we fall back TO
+            isLexicalChild: false, // Not a lexically nested call relative to the inner definition
+            goalArgs: 'goal', // Special instruction to pass original arguments
+            call: {}, // Dummy AST node for signature matching
         }],
     };
 }
 
 /**
- * Transforms a single predicate's clause group into its final IR.
- * @param {object} clauseGroup - The clause group from the analysis pass.
- * @returns {object} The final IR object for the predicate.
+ * Transforms a PredicateDefinition (from the analysis scope tree) into its IR format.
+ * @param {PredicateDefinition} predicateDef - The predicate definition from analyzeScopes.
+ * @param {Scope} scope - The parent scope where this predicate was defined (provides context).
+ * @returns {object} The final IR object for the predicate { name, mangledName, clauses }.
  */
-export default function transformPredicate(clauseGroup) {
-    // Transform all the real, AST-based clauses.
-    const clauseIRs = clauseGroup.nodes.map(node => {
-        const singleClauseAnnotation = { ...clauseGroup, node };
-        return transformFunctionDeclaration(singleClauseAnnotation);
+export default function transformPredicate(predicateDef) {
+    // Transform each actual clause defined for this predicate.
+    const clauses = predicateDef.clauses.map(clauseInfo => {
+        // Pass the clauseInfo (containing node, scope, getRawSource, resolveName)
+        // Also pass the predicate's mangledName for context if needed inside.
+        return transformFunctionDeclaration(clauseInfo, predicateDef.mangledName);
     });
 
-    // If this predicate shadows a global one, create and add the fallback clause.
-    if (clauseGroup.shadows) {
-        clauseIRs.push(createFallbackClause(clauseGroup.name, clauseGroup.shadows));
+    // If analysis determined this predicate shadows another one...
+    if (predicateDef.shadows) {
+        // ...append the special fallback clause IR.
+        clauses.push(createFallbackClause(predicateDef));
     }
 
+    // Return the predicate IR structure.
     return {
-        name: clauseGroup.name,
-        clauses: clauseIRs,
+        name: predicateDef.name,
+        mangledName: predicateDef.mangledName,
+        clauses, // Array of clause IRs (including fallback if any)
     };
 }

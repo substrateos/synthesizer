@@ -25,7 +25,7 @@ export default function generatePredicateResolver(mangledName, predicateIR) {
 /**
  * Transpiled resolver for the '${name}' predicate.
  */
-function* ${mangledName}(scope, ...goal) {
+function* ${mangledName}(parentScopes, ...goal) {
     // define these at the outer scope for easier debugging
     let yieldValue;
 

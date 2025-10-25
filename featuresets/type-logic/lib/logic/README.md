@@ -26,8 +26,11 @@ This language is a hybrid that combines the declarative power of logic programmi
 ### Deep JS Syntax Integration
 
   * **Native Data Types**: Unification works seamlessly with JavaScript primitives (strings, numbers, booleans) and structures (arrays, objects).
-  * **Destructuring**: Use array (`[H, ...T]`) and object (`{name, age}`) destructuring patterns directly in rule heads and in assignments within the rule body.
+  * **Destructuring**:
+    * **Rule Heads (LHS):** Use standard JavaScript destructuring patterns directly in rule heads (`function rule([H,...T], {a, b: B, ...R})`). Syntax strictly follows JavaScript rules: the **rest element (`...`) must be the *last*** element/property.
+    * **Rule Bodies (RHS Assignments):** Full JavaScript **spread syntax is supported** for constructing arrays and objects within assignments (`Result = [A, ...Mid, Z]`, `Result = {...Defaults, ...Overrides}`). Multiple spreads in any position are allowed.
   * **Arithmetic & Comparison**: Perform computations by wrapping expressions in `Number()` (e.g., `Sum = Number(A + B)`). Use standard JS comparison operators (`>=`, `<`, `===`) as goals.
+  * **Expressions**: Use **`Logic.js()`** for arbitrary JavaScript (e.g., `FullName = Logic.js(First + " " + Last)`).
 
 ### Lexical Scoping & Higher-Order Logic
 
@@ -40,6 +43,8 @@ This language is a hybrid that combines the declarative power of logic programmi
 ### Control Flow & Built-ins
 
   * **Negation as Failure (`!`)**: The `!` operator can be used on a subgoal. The goal succeeds only if the negated sub-goal fails to find any solutions.
+  * **`Logic.js()`**: Evaluate arbitrary JavaScript expressions within a rule body, resolving logic variables before execution.
+  * **`Logic.is_ground`**: Succeeds if the given term contains no unbound logic variables.
   * **`Logic.findall`**: A built-in predicate to collect all solutions for a sub-goal into a single list.
 
 ### Execution Model
@@ -212,6 +217,25 @@ console.log([...is_adult(20)]);
 // Query 2: Fails, returning zero solutions
 console.log([...is_adult(10)]);
 //> []
+```
+
+-----
+
+This shows how to use Logic.js() to run any JavaScript expression. The engine resolves logic variables (like First and Last) to their values before executing the expression.
+
+```javascript
+const { full_name } = logic.solve`
+    // Logic.js() resolves logic vars, then runs the JS expression
+    function full_name(First, Last, Full) {
+        Full = Logic.js(First + " " + Last);
+    }
+`;
+
+const { F } = logic.vars();
+
+// Query: Compute a full name
+console.log([...full_name('John', 'Doe', F)]);
+//> [ { F: 'John Doe' } ]
 ```
 
 -----

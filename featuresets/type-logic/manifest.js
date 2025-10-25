@@ -8,6 +8,7 @@ export default {
         'lib/logic/tags.js',
 
         'lib/logic/acorn@8.15.0.js',
+        'lib/logic/acorn-walk@8.3.4.js',
         'lib/logic/schedulers/BFS.js',
         'lib/logic/schedulers/DFS.js',
         'lib/logic/solution.js',
@@ -21,6 +22,7 @@ export default {
         'lib/logic/solve/testShim/tests/tracer.js',
         'lib/logic/solve/testShim/tests/facts.js',
         'lib/logic/solve/testShim/tests/builtins-is_ground.js',
+        'lib/logic/solve/testShim/tests/builtins-js.js',
         'lib/logic/solve/testShim/tests/patterns-array.js',
         'lib/logic/solve/testShim/tests/patterns-object.js',
         'lib/logic/solve/testShim/tests/builtins-findall.js',
@@ -38,9 +40,9 @@ export default {
         'lib/logic/compile/program.js',
 
         'lib/logic/compile/analyze/util/mangleName.js',
+        'lib/logic/compile/analyze/util/findDeclaredVariables.js',
+        'lib/logic/compile/analyze/util/findDeclaredFunctions.js',
         'lib/logic/compile/analyze/util/visit.js',
-        'lib/logic/compile/analyze/scopes.js',
-        'lib/logic/compile/analyze/clauses.js',
         'lib/logic/compile/analyze/program.js',
 
         'lib/logic/compile/transform/builtins/findall.js',
@@ -58,6 +60,7 @@ export default {
         'lib/logic/compile/transform/predicate.js',
         'lib/logic/compile/transform/program.js',
         'lib/logic/compile/transform/util/trim.js',
+        'lib/logic/compile/transform/util/findFreeVariables.js',
 
         'lib/logic/compile/generate/predicate.js',
         'lib/logic/compile/generate/clause.js',

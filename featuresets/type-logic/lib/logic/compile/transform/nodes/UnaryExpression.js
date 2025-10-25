@@ -3,28 +3,38 @@ import trimNode from '@/lib/logic/compile/transform/util/trim';
 /**
  * Analyzes a UnaryExpression to produce a 'negation' goal IR.
  * @param {object} expr - The UnaryExpression AST node.
- * @param {object} context - The transformer context, containing the scopeMap.
- * @returns {object} A 'negation' instruction for the IR.
+ * @param {ClauseInfo} context - The transformation context containing { scope, ... }.
+ * @returns {object|null} A 'negation' instruction for the IR, or null if not applicable.
  */
 export default (expr, context) => {
+    // Check Operator
     if (expr.operator !== '!') {
-        return null; // We only handle the negation operator.
+        return null;
     }
+
+    // Check Argument Type
     const goal = expr.argument;
-    if (goal.type !== 'CallExpression') {
-        throw new Error('Negation operator (!) can only be applied to a goal (a function call).');
+    if (goal.type !== 'CallExpression' || goal.callee.type !== 'Identifier') {
+        throw new Error('Negation operator (!) can only be applied directly to a simple predicate call (e.g., !myPred(X)).');
     }
 
-    // Look up the mangled name for the negated predicate.
+    // Resolve Predicate Name
     const predName = goal.callee.name;
-    const resolverName = context.scopeMap[predName];
-    if (!resolverName) {
-        throw new Error(`Undefined predicate in negation: ${predName}`);
+    const resolution = context.scope.resolveName(predName);
+
+    // Validate Resolution
+    if (!resolution) {
+        throw new Error(`Undefined predicate used in negation: ${predName}`);
+    }
+    if (resolution.type !== 'predicate') {
+        throw new Error(`Cannot apply negation operator (!) to a variable: ${predName}`);
     }
 
+    // 6. Return IR
     return {
         type: 'negation',
-        resolverName,
-        goal: trimNode(goal)
+        resolverName: resolution.definition.mangledName,
+        scopeDepth: resolution.scope.depth,
+        goal: trimNode(goal),
     };
 };
