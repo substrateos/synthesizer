@@ -9,7 +9,7 @@ import ObjectPattern from '@/lib/logic/unify/ObjectPattern';
 
 // --- Main Transpilation Logic ---
 
-export default function transpile(sourceCode) {
+export default function compileProgram(sourceCode) {
     // --- Step 1: Parse the source to get an AST ---
     const ast = acornParse(sourceCode, { ecmaVersion: 2022, sourceType: 'script' });
 
@@ -31,14 +31,14 @@ export default function transpile(sourceCode) {
         }
     }
 
-    let transpiledCode;
+    let generatedSource;
     // --- Step 4: Assemble the final output string ---
     if (isModule) {
         const exports = Array.from(exportedPredicates)
             .map(name => `export const ${name} = pred_${name};`)
             .join('\n');
 
-        transpiledCode = `
+        generatedSource = `
 import unify, { resolve } from '@/lib/logic/unify';
 import ArrayPattern from '@/lib/logic/unify/ArrayPattern';
 import ObjectPattern from '@/lib/logic/unify/ObjectPattern';
@@ -54,7 +54,7 @@ ${exports}
         .map(clause => `${clause.name}: ${clause.mangledName}.bind(null, null)`)
         .join(',\n        ');
 
-        transpiledCode = `(function(utils) {
+        generatedSource = `(function(utils) {
     const { unify, resolverTags, resolverTag, nameTag, ArrayPattern, ObjectPattern } = utils;
 
     ${resolverCode}
@@ -69,7 +69,7 @@ ${exports}
     }
 
     return {
-        transpiledCode,
+        generatedSource,
         utils: { unify, resolve, resolverTags, resolverTag, nameTag, ArrayPattern, ObjectPattern },
         predicates,
     };
