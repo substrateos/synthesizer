@@ -43,14 +43,16 @@ This language is a hybrid that combines the declarative power of logic programmi
 ### Control Flow & Built-ins
 
   * **Negation as Failure (`!`)**: The `!` operator can be used on a subgoal. The goal succeeds only if the negated sub-goal fails to find any solutions.
-  * **`Logic.js()`**: Evaluate arbitrary JavaScript expressions within a rule body, resolving logic variables before execution.
+  * **`Logic.js()`**: Evaluate arbitrary JavaScript expressions within a rule body, resolving logic variables before execution. In logic.solveAsync, this built-in can transparently handle expressions that return a Promise.
   * **`Logic.is_ground`**: Succeeds if the given term contains no unbound logic variables.
   * **`Logic.findall`**: A built-in predicate to collect all solutions for a sub-goal into a single list.
 
 ### Execution Model
-
-  * **Ahead-of-Time (AOT) Transpilation**: The `solve` tag transpiles the logic program into highly optimized JavaScript generators *once*.
-  * **Coroutine-based Runtime**: A minimal, efficient "trampoline" solver executes the generated code.
+  * **Dual Sync/Async API**:
+    * `logic.solve`: For **synchronous** programs. All queries return a standard Iterator. You can collect results with `[...query]`. The engine will **throw an error** if `Logic.js()` returns a `Promise`.
+    * `logic.solveAsync`: For **asynchronous** programs. This tag allows `Logic.js()` to handle `Promise` results. All queries return an `AsyncIterator`. You must use `for await...of` or a helper (like `logic.all()`) to collect results.
+  * **Ahead-of-Time (AOT) Transpilation**: The `solve` or `solveAsync` tag transpiles the logic program into highly optimized JavaScript sync generators *once*.
+  * **Coroutine-based Runtime**: A minimal, efficient "trampoline" solver executes the generated code, a fast sync loop (`solveSync`) and an async-capable loop (`solveAsync`).
   * **Pluggable Schedulers**: The search strategy is configurable at query time. The default is **Depth-First Search (DFS)**, and **Breadth-First Search (BFS)** is also available.
 
 -----
@@ -350,4 +352,28 @@ const { List } = logic.vars();
 // Query: Find all items in group 'a'
 console.log([...get_all_items('a', List)]);
 //> [ { List: [1, 2] } ]
+```
+
+------
+
+### logic.solveAsync (Asynchronous)
+
+Use logic.solveAsync when you need to perform I/O or handle Promise-returning functions transparently. All queries will return AsyncIterators.
+
+```javascript
+const { get_data, add_async } = logic.solveAsync`
+    function add_async(A, Result) {
+        var Val;
+        // Get the async value
+        Val = Logic.js(Promise.resolve(A));
+        // Use it in a normal calculation
+        Result = Logic.js(Val + 10);
+    }
+`;
+
+// Create symbolic variables
+const { R } = logic.vars();
+
+console.log(await logic.all(add_async(5, R)));
+//> { R: 15 }
 ```

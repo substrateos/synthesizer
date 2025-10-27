@@ -353,5 +353,37 @@ export default function GoalSeries({nextID=1, defaultSchedulerClass=DFS, default
                 goal = nextGoal;
             }
         }
+
+        /**
+         * Asynchronous solver loop.
+         */
+        async *solveAsync() {
+            let goal = this;
+
+            while (goal) {
+                const { goal: nextGoal, solutionToYield, signal } = goal.#step();
+
+                if (signal.type === 'await') {
+                    const { promise, resume } = signal;
+                    
+                    let resumeValue;
+                    try {
+                        const resolvedValue = await promise;
+                        resumeValue = { status: 'resolved', value: resolvedValue };
+                    } catch (error) {
+                        resumeValue = { status: 'rejected', error: error };
+                    }
+                    
+                    // Reschedule the task, passing back the compound status object.
+                    nextGoal.schedule({ resume, resumeValue });
+                }
+
+                if (solutionToYield) {
+                    yield solutionToYield;
+                }
+
+                goal = nextGoal;
+            }
+        }
     }
 }

@@ -25,7 +25,7 @@ export default function generateClause(clause, clauseId) {
     }).join('\n');
 
     return `
-    let {subgoalRedoKey, subgoalSolution, resume} = step;
+    let {subgoalRedoKey, subgoalSolution, resumeValue, resume} = step;
     // 'parentScopes' is the incoming scope array [..., parentData] or null
     // 'vars', 'bindings', 'scopes' are clause-instance specific state
     let {pc, oppc, vars, bindings, scopes} = resume ?? {}; // Renamed scopes

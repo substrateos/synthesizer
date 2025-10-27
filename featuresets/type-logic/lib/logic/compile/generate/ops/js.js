@@ -1,6 +1,6 @@
 import value from '@/lib/logic/compile/generate/blocks/value';
 
-export default ({ target, rawString, logicVars }) => {
+export default ({ target, rawString, logicVars }, clauseId, pc) => {
   // 1. Get the list of argument *values* to pass to the IIFE
   const resolvedArgValues = logicVars.map(varName => 
     value({ type: 'Identifier', name: varName }, 'bindings')
@@ -13,20 +13,60 @@ export default ({ target, rawString, logicVars }) => {
   const iifeParamNames = logicVars.join(', ');
 
   return `
-// --- Logic.js IIFE ---
-// Evaluate the JS expression in a sandboxed IIFE.
-const computedValue = (function(${iifeParamNames}) {
-    return ${iifeBody};
-})(${resolvedArgValues.join(', ')});
-
-bindings = unify(${value(target, 'bindings')}, computedValue, bindings, location);
-if (bindings) {
+let value
+switch (oppc) {
+case undefined: {
+  // Evaluate the JS expression in a sandboxed IIFE.
+  let shouldFail = undefined;
+  const Logic = {fail: (reason) => (shouldFail = {reason}) }; // TODO only lazily insert the Logic helper
+  value = (function(${iifeParamNames}){ return ${iifeBody} }).call(Logic, ${resolvedArgValues.join(', ')});
+  if (shouldFail) {
+    yieldValue = {type: 'fail', reason: shouldFail.reason}
+    continue
+  }
+  if (value instanceof Promise) {
+    yieldValue = {
+      type: 'await',
+      promise: value,
+      resume: {
+        clauseId: ${clauseId},
+        pc: ${pc},
+        bindings,
+        vars,
+        scopes,
+        oppc: 1,
+        checkShouldFail: () => shouldFail,
+      },
+    };
+    continue;
+  }
+  oppc = 1;
+  // fallthrough
+}
+case 1: {
+  if (value === undefined && resumeValue !== undefined) {
+    const shouldFail = resume?.checkShouldFail()
+    if (shouldFail) {
+      yieldValue = {type: 'fail', reason: shouldFail.reason}
+      continue
+    }
+    if (resumeValue.status === 'resolved') {
+      value = resumeValue.value
+    } else {
+      throw resumeValue.error
+    }
+  }
+  bindings = unify(${value(target, 'bindings')}, value, bindings, location);
+  if (bindings) {
     pc++; // Success, continue to the next goal.
-    // fallthrough
-} else {
+    oppc = undefined;
+    break
+  } else {
     // Unification with the computed value failed.
     yieldValue = { type: 'fail' };
     continue;
+  }
+}
 }
 `;
 }

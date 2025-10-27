@@ -88,13 +88,27 @@ function templateTag(baseConfig, strings, ...values) {
     return finalDatabase;
 }
 
-export default function solve(strings, ...values) {
+export function solve(strings, ...values) {
     return templateTag({
         newQuery() {
             const config = this
             return function* (...args) {
                 const goal = config.newGoal(...args)
                 for (const solution of goal.solve()) {
+                    yield resolveSolution(args, solution)
+                }
+            }
+        },
+    }, strings, ...values)
+}
+
+export function solveAsync(strings, ...values) {
+    return templateTag({
+        newQuery() {
+            const config = this
+            return async function* (...args) {
+                const goal = config.newGoal(...args)
+                for await (const solution of goal.solveAsync()) {
                     yield resolveSolution(args, solution)
                 }
             }
