@@ -204,113 +204,153 @@ export default function GoalSeries({nextID=1, defaultSchedulerClass=DFS, default
             return parentGoal
         }
 
-        *solve() {
-            let goal = this
+        /**
+         * Private: Gets the next task and runs the generator to get a signal.
+         * This is always synchronous.
+         * @returns {object} The signal from the resolver, or a 'fail' signal.
+         */
+        #step() {
+            const next = this.scheduler.next();
 
-            while (true) {
-                let signal
-                let task
+            let goal;
+            let signal;
+            if (next) {
+                goal = next.goal;
+                goal.scheduledTasks--;
 
-                ({goal, task} = (goal.scheduler.next() ?? {goal}));
-                
-                if (task) {
-                    goal.scheduledTasks--;
-                    if (task.subgoal) {
-                        // switch to the goal it's for
-                        goal = task.subgoal
-                        goal.continueAsSubgoal(notify)
-                        continue
+                if (next.subgoal) {
+                    // switch to the goal it's for
+                    const subgoal = task.subgoal
+                    subgoal.continueAsSubgoal(task.notify)
+                    return {goal: subgoal, signal: {type: undefined}} // fake signal
+                }
+
+                const task = next.task
+                if (task.trace) {
+                    goal.tracer?.(goal, task.trace)
+                }
+
+                // Run the generator
+                const nextResult = goal.generator.next(task);
+                if (nextResult.done) {
+                    throw new Error("generator should not have exited")
+                }
+            
+                signal = nextResult.value;
+            } else {
+                goal = this;
+                signal = {type: 'fail'}
+            }
+
+            return goal.#handleSignal(signal)
+        }
+
+        /**
+         * Private: Handles all common signals.
+         * This is always synchronous.
+         * @param {object} signal - The signal from #getSignal()
+         * @returns {object} An object { goal, solutionToYield }.
+         * `goal` is the next goal context (or undefined on final fail).
+         * `solutionToYield` is a solution to be yielded, if any.
+         */
+        #handleSignal(signal) {
+            let currentGoal = this;
+            let solutionToYield = undefined;
+
+            switch (signal.type) {
+                case 'call': {
+                    switch (signal.op || 'call') {
+                        case 'call': { 
+                            const {resume, resolver, goal: args, tracer} = signal;
+                            currentGoal.subgoalCall(resume, resolver, args, tracer)
+                            break;
+                        }
+                        case 'redo': {
+                            const {resume, key} = signal
+                            currentGoal.subgoalRedo(resume, key)
+                            break;
+                        }
+                        case 'done': {
+                            const {resume, key} = signal
+                            currentGoal.subgoalDone(resume, key)
+                            break;
+                        }
                     }
+                    break;
+                }
 
-                    if (task.trace) {
-                        goal?.tracer?.(goal, task.trace)
+                case 'fork': { 
+                    const {resume, forks} = signal;
+                    currentGoal.scheduleAll(forks);
+                    if (resume) {
+                        currentGoal.schedule({ resume });
                     }
+                    break;
+                }
 
-                    // if it's our own task, do it
-                    const nextResult = goal.generator.next(task);
-                    if (nextResult.done) {
-                        throw new Error("generator should not have exited")
+                case 'exit': { 
+                    const {solution, resume, feedback: feedbackToken} = signal
+                    currentGoal.solutionsFound++;
+                    currentGoal.tracer?.(currentGoal, 'EXIT', solution);
+
+                    if (currentGoal.notify) {
+                        currentGoal = currentGoal.notifySolution(resume, solution)
+                    } else if (currentGoal.parent) {
+                        throw new Error("internal error: subgoal produced a solution but notify is not set")
                     } else {
-                        signal = nextResult.value;
-                    }
-                } else {
-                    signal = {type: 'fail'}
-                }
-
-                switch (signal.type) {
-                    case 'call': {
-                        switch (signal.op || 'call') {
-                            case 'call': { // The resolver needs a solution from a subgoal.
-                                const {resume, resolver, goal: args, tracer} = signal;
-                                goal.subgoalCall(resume, resolver, args, tracer)
-                                break;
-                            }
-                            case 'redo': { // signal should have {key, resume}
-                                const {resume, key} = signal
-                                goal.subgoalRedo(resume, key)
-                                break;
-                            }
-                            case 'done': {
-                                const {resume, key} = signal
-                                goal.subgoalDone(resume, key)
-                                break;
-                            }
-                        }
-                        break;
-                    }
-
-                    case 'fork': { // The resolver found multiple alternative paths.
-                        const {resume, forks} = signal;
-                        goal.scheduleAll(forks);
-                        if (resume) {
-                            goal.schedule({ resume });
-                        }
-                        break;
-                    }
-
-                    case 'exit': { // The resolver has found a solution
-                        const {solution, resume, feedback: feedbackToken} = signal
-                        goal.solutionsFound++;
-                        goal.tracer?.(goal, 'EXIT', solution);
-
-                        if (goal.notify) {
-                            // If this was a sub-goal, resume its parent with the solution.
-                            goal = goal.notifySolution(resume, solution)
-                            continue
-                        }
+                        // This is a top-level solution.
+                        // Tell the main loop to yield it.
+                        solutionToYield = solution;
                         
-                        if (goal.parent) {
-                            throw new Error("internal error: subgoal produced a solution but notify is not set")
-                        } else {
-                            // This is a top-level solution. Yield it to the user.
-                            // TODO use the outcome as feedback.
-                            const outcome = yield solution;
-
-                            // If more solutions might exist for this path, schedule the next one.
-                            if (resume) {
-                                goal.schedule({ resume });
-                            }
-
-                            if (!goal.checkCompleted()) {
-                                goal.tracer?.(goal, 'REDO')
-                            }
+                        if (resume) {
+                            currentGoal.schedule({ resume });
                         }
-                        break;
-                    }
-
-                    case 'fail': {
-                        if (goal.checkCompleted()) {
-                            goal.tracer?.(goal, 'FAIL');
-                            if (goal.notify) {
-                                goal = goal.notifySolution(undefined, undefined)
-                                continue; // Let loop continue with parent context
-                            }
-
-                            return;
+                        if (!currentGoal.checkCompleted()) {
+                            currentGoal.tracer?.(currentGoal, 'REDO')
                         }
-                        break;
                     }
+                    break;
                 }
+
+                case 'fail': {
+                    if (currentGoal.checkCompleted()) {
+                        currentGoal.tracer?.(currentGoal, 'FAIL');
+                        if (currentGoal.notify) {
+                            currentGoal = currentGoal.notifySolution(undefined, undefined)
+                        } else {
+                            // Final fail, signal loop to terminate
+                            currentGoal = undefined;
+                        }
+                    }
+                    break;
+                }
+            }
+
+            return { goal: currentGoal, solutionToYield, signal };
+        }
+
+
+        /**
+         * Synchronous solver loop.
+         */
+        *solve() {
+            let goal = this;
+
+            while (goal) {
+                const { goal: nextGoal, solutionToYield, signal } = goal.#step();
+
+                if (signal.type === 'await') {
+                    throw new Error(
+                        "Async operation (await) detected in a 'logic.solve' block. " +
+                        "Use 'logic.solveAsync' to enable asynchronous operations."
+                    );
+                }
+                
+                if (solutionToYield) {
+                    yield solutionToYield;
+                }
+                
+                goal = nextGoal;
             }
         }
     }

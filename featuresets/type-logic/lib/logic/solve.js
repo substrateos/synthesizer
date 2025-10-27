@@ -1,5 +1,5 @@
 import GoalSeries from "@/lib/logic/GoalSeries";
-import transpile from '@/lib/logic/compile/program';
+import compileProgram from '@/lib/logic/compile/program';
 import resolveSolution from '@/lib/logic/solution';
 
 // Exported tags for accessing internal metadata and the resolver.
@@ -19,22 +19,7 @@ import {
  * @returns {function} A configured async generator function for querying.
  */
 function createConfiguredQuery(config) {
-    // This is the actual async generator that will be returned.
-    const query = function* (...args) {
-        const Goal = GoalSeries({defaultSchedulerClass: config.defaultSchedulerClass})
-        const scheduler = config.schedulerClass ? new (config.schedulerClass)() : undefined
-        const goal = new Goal({
-            scheduler,
-            resolver: config.resolver,
-            args,
-            tracer: config.tracer,
-        });
-
-        for (const solution of goal.solve()) {
-            yield resolveSolution(args, solution)
-        }
-    };
-
+    const query = config.newQuery();
     query.bind = (() => {
         const originalBind = query.bind;
         const newBind = function (...bindArgs) {
@@ -74,28 +59,45 @@ function createConfiguredQuery(config) {
  * A template tag function that transpiles a logic program and returns a
  * database of configurable, ready-to-query predicate functions.
  */
-export default function solve(strings, ...values) {
+function templateTag(baseConfig, strings, ...values) {
     // Reconstruct the source code from the template literal parts. This handles
     // both direct source (`solve`...`) and interpolated source (`solve`${...}`).
     const source = strings.reduce((acc, str, i) => acc + str + (values[i] || ''), '');
 
-    const { transpiledCode, utils, predicates } = transpile(source);
+    baseConfig = {
+        ...baseConfig,
+        newGoal(...args) {
+            const Goal = GoalSeries({defaultSchedulerClass: this.defaultSchedulerClass})
+            const scheduler = this.schedulerClass ? new (this.schedulerClass)() : undefined
+            return new Goal({scheduler, resolver: this.resolver, args, tracer: this.tracer});
+        }
+    }
+    const { generatedSource, utils } = compileProgram(source);
 
-    const factory = new Function(`return (${transpiledCode})`);
+    const factory = new Function(`return (${generatedSource})`);
     const rawDatabase = factory()(utils);
 
     const finalDatabase = {};
     for (const predName in rawDatabase) {
         const resolver = rawDatabase[predName];
-
-        resolver[nameTag] = predName;        
-
-        finalDatabase[predName] = createConfiguredQuery({
-            resolver,
-            predicates: predicates[predName]
-        });
+        resolver[nameTag] = predName;
+        finalDatabase[predName] = createConfiguredQuery({...baseConfig, resolver});
     }
-    finalDatabase[generatedSourceTag] = transpiledCode; 
+    finalDatabase[generatedSourceTag] = generatedSource; 
    
     return finalDatabase;
+}
+
+export default function solve(strings, ...values) {
+    return templateTag({
+        newQuery() {
+            const config = this
+            return function* (...args) {
+                const goal = config.newGoal(...args)
+                for (const solution of goal.solve()) {
+                    yield resolveSolution(args, solution)
+                }
+            }
+        },
+    }, strings, ...values)
 }
