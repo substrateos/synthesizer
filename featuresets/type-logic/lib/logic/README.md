@@ -29,7 +29,7 @@ This language is a hybrid that combines the declarative power of logic programmi
   * **Destructuring**:
     * **Rule Heads (LHS):** Use standard JavaScript destructuring patterns directly in rule heads (`function rule([H,...T], {a, b: B, ...R})`). Syntax strictly follows JavaScript rules: the **rest element (`...`) must be the *last*** element/property.
     * **Rule Bodies (RHS Assignments):** Full JavaScript **spread syntax is supported** for constructing arrays and objects within assignments (`Result = [A, ...Mid, Z]`, `Result = {...Defaults, ...Overrides}`). Multiple spreads in any position are allowed.
-  * **Arithmetic & Comparison**: Perform computations by wrapping expressions in `Number()` (e.g., `Sum = Number(A + B)`). Use standard JS comparison operators (`>=`, `<`, `===`) as goals.
+  * **Arithmetic & Comparison**: Perform computations by wrapping expressions in `Logic.js()` (e.g., `Sum = Logic.js(A + B)`). Use standard JS comparison operators (`>=`, `<`, `===`) as goals.
   * **Expressions**: Use **`Logic.js()`** for arbitrary JavaScript (e.g., `FullName = Logic.js(First + " " + Last)`).
 
 ### Lexical Scoping & Higher-Order Logic
@@ -106,7 +106,7 @@ Each example below is a small, complete program. You can run them individually t
 
 ### Facts, Rules, and Recursion
 
-This example shows how to define simple data (facts) and combine them with rules. The `path` rule is recursive, which allows it to find paths of any length.
+You can define simple data (facts) and combine them with rules. The `path` rule is recursive, which allows it to find paths of any length.
 
 ```javascript
 const { path } = logic.solve`
@@ -140,7 +140,7 @@ console.log(results);
 
 ### Array Destructuring
 
-This shows how to use JavaScript's array destructuring syntax in a rule's head for powerful and immediate pattern matching. The `Head=H` syntax is transpiled into a unification goal.
+Use JavaScript's array destructuring syntax in a rule's head for powerful and immediate pattern matching. The `Head=H` syntax is transpiled into a unification goal.
 
 ```javascript
 const { list_head } = logic.solve`
@@ -160,7 +160,7 @@ console.log([...list_head([10, 20, 30], H)]);
 
 ### Object Destructuring
 
-This demonstrates using object destructuring in a rule's head to match and extract properties from a JavaScript object. The `Result=Name` syntax is transpiled into a unification goal.
+Use object destructuring in a rule's head to match and extract properties from a JavaScript object. The `Result=Name` syntax is transpiled into a unification goal.
 
 ```javascript
 const { person_name } = logic.solve`
@@ -181,13 +181,13 @@ console.log([...person_name(person, X)]);
 
 ### Arithmetic
 
-This demonstrates how to perform calculations. Arithmetic expressions are wrapped in the `Number()` function to signal the engine to compute the result and unify it.
+Wrap arithmetic expressions in `Logic.js()` function to signal the engine to compute the result and unify it.
 
 ```javascript
 const { add } = logic.solve`
-    // Wrap arithmetic in Number() to unify the result
+    // Wrap arithmetic in Logic.js() to unify the result
     function add(A, B, Sum) {
-        Sum = Number(A + B);
+        Sum = Logic.js(A + B);
     }
 `;
 
@@ -202,7 +202,7 @@ console.log([...add(5, 4, Sum)]);
 
 ### Comparison
 
-This shows how standard JavaScript comparison operators (`>=`, `<`, `===`, etc.) can be used as goals. A comparison acts as a rule that can either succeed or fail.
+Standard JavaScript comparison operators (`>=`, `<`, `===`, etc.) can be used as goals. A comparison acts as a rule that can either succeed or fail.
 
 ```javascript
 const { is_adult } = logic.solve`
@@ -223,7 +223,7 @@ console.log([...is_adult(10)]);
 
 -----
 
-This shows how to use Logic.js() to run any JavaScript expression. The engine resolves logic variables (like First and Last) to their values before executing the expression.
+Use Logic.js() to run any JavaScript expression. The engine resolves logic variables (like First and Last) to their values before executing the expression.
 
 ```javascript
 const { full_name } = logic.solve`
@@ -244,7 +244,7 @@ console.log([...full_name('John', 'Doe', F)]);
 
 ### Lexical Scoping and Shadowing
 
-This example shows how nested rules work. The inner `status` rule "shadows" the outer one. The engine tries the local rule first, then backtracks to find the global rule.
+Nested rules are a way to add context-specific alternatives. The inner `status` rule "shadows" the outer one. The engine tries the local rule first, then backtracks to find the global rule.
 
 ```javascript
 const { test_shadowing } = logic.solve`
@@ -275,13 +275,13 @@ console.log([...test_shadowing(S)]);
 -----
 
 ### Dynamic Subgoals (Higher-Order Logic)
-This demonstrates passing a predicate as a variable (P). This allows you to create generic, higher-order rules like map that apply an operation to a list.
+You can pass a predicate as a variable (P). This allows you to create generic, higher-order rules like map that apply an operation to a list.
 
 ```javascript
 const { map, increment } = logic.solve`
     // A simple operation we want to apply
     function increment(N, R) {
-        R = Number(N + 1);
+        R = Logic.js(N + 1);
     }
     
     // A generic 'map' rule
@@ -305,7 +305,7 @@ console.log(results);
 
 ### Negation as Failure (`!`)
 
-This shows how to use the `!` operator to negate a goal. The `can_vote(Age)` goal will only succeed if the `is_minor(Age)` sub-goal *fails*.
+Use the `!` operator to negate a goal. The `can_vote(Age)` goal will only succeed if the `is_minor(Age)` sub-goal *fails*.
 
 ```javascript
 const { can_vote } = logic.solve`
@@ -330,7 +330,7 @@ console.log([...can_vote(20)]);
 
 ### `Logic.findall`
 
-This shows how to use `Logic.findall` to collect all possible solutions for a sub-goal into a single list.
+Use `Logic.findall` to collect all possible solutions for a sub-goal into a single list.
 
 ```javascript
 const { get_all_items } = logic.solve`
