@@ -11,7 +11,7 @@ export default ({ target, call, template, resolverName, scopeDepth }, clauseId, 
     const goalArgsCode = `[${call.arguments.map(node => value(node, 'bindings')).join(', ')}]`;
 
     return `
-findallSolutions = resume.findallSolutions ?? [];
+const findallSolutions = resume.findallSolutions ?? [];
 switch (oppc) {
 case undefined:
     const resolver = ${resolverName}.bind(null, ${scopeSliceCode});
@@ -57,7 +57,6 @@ case 1:
         pc++; // Success
         resume = { clauseId: ${clauseId}, pc: ${pc}, bindings, vars, scopes};
         oppc = undefined;
-        findallSolutions = undefined;
         subgoalSolution = undefined;
         subgoalResult = undefined;
         // fallthrough
