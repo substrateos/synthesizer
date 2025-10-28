@@ -46,17 +46,17 @@ export default [
         "Find the one solution": [
           "CALL: (1) test_trace(X)",
           "  CALL: (2) data(X)",
-          "  EXIT: (2) data(X = 'a')",
-          "  CALL: (3) check('a')",
-          "  FAIL: (3) check('a')",
-          "  REDO: (2) data(X = 'a')",
-          "  EXIT: (2) data(X = 'b')",
-          "  CALL: (4) check('b')",
-          "  EXIT: (4) check('b')",
-          "EXIT: (1) test_trace(X = 'b')",
-          "REDO: (1) test_trace(X = 'b')",
-          "  REDO: (4) check('b')",
-          "  FAIL: (4) check('b')",
+          "  EXIT: (2) data(X = \"a\")",
+          "  CALL: (3) check(\"a\")",
+          "  FAIL: (3) check(\"a\")",
+          "  REDO: (2) data(X = \"a\")",
+          "  EXIT: (2) data(X = \"b\")",
+          "  CALL: (4) check(\"b\")",
+          "  EXIT: (4) check(\"b\")",
+          "EXIT: (1) test_trace(X = \"b\")",
+          "REDO: (1) test_trace(X = \"b\")",
+          "  REDO: (4) check(\"b\")",
+          "  FAIL: (4) check(\"b\")",
           "FAIL: (1) test_trace(X)"
         ]
       }

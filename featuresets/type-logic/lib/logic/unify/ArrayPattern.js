@@ -1,4 +1,4 @@
-import { unifyTag, groundTag } from "@/lib/logic/tags";
+import { unifyTag, groundTag, reprTag } from "@/lib/logic/tags";
 import unifyPattern from "@/lib/logic/unify/pattern";
 
 export default class ArrayPattern {
@@ -137,7 +137,9 @@ export default class ArrayPattern {
         return unify(p1_remainder, p2_remainder, bindings, location);
     }
 
-    // --- Core API methods ---
+    [reprTag](repr) {
+        return `[${this.parts.map(part => typeof part === 'symbol' ? `...${repr(part)}` : part.map(repr).join(', ')).join(", ")}]`
+    }
 
     [unifyTag](unify, value, bindings, location) {
         // Delegate to the shared template

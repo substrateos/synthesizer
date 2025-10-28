@@ -1,4 +1,4 @@
-import { unifyTag, groundTag } from "@/lib/logic/tags";
+import { unifyTag, groundTag, reprTag } from "@/lib/logic/tags";
 import unifyPattern from "@/lib/logic/unify/pattern";
 
 export default class ObjectPattern {
@@ -121,7 +121,14 @@ export default class ObjectPattern {
         return unify(p2_rest_pattern, p1_needs, bindings, location);
     }
 
-    // --- Core API methods ---
+    [reprTag](repr) {
+        return `{${this.parts.map(part => {
+            if (typeof part === 'symbol') {
+                return `...${repr(part)}`
+            }
+            return Object.entries(part).map(([k,v]) => `${k}: ${repr(v)}`).join(', ');
+        }).join(", ")}}`
+    }
 
     [unifyTag](unify, value, bindings, location) {
         return unifyPattern(unify, this, value, bindings, location);

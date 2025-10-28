@@ -3,6 +3,7 @@ export const resolverTag = '$resolver';
 export const configTag = '$config';
 export const nameTag = '$name';
 export const generatedSourceTag = '$generatedSource';
+export const reprTag = '$repr';
 export const unifyTag = '$unify';
 export const groundTag = '$ground';
 

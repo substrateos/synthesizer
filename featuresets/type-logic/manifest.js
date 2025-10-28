@@ -15,6 +15,7 @@ export default {
         'lib/logic/GoalSeries.js',
         'lib/logic/all.js',
         'lib/logic/solve.js',
+        'lib/logic/repr.js',
         'lib/logic/tracer.js',
         'lib/logic/testShim.js',
         'lib/logic/testShim/tests/closure.js',
