@@ -122,7 +122,7 @@ export default [
         "debugKeys": ["generatedSource", "predicates", "traces"],
         "throws": {
             "name": "Error",
-            "message": "Cannot ground ArrayPattern: rest variable 'T' was bound to non-array."
+            "message": "Cannot ground ArrayPattern: spread variable 'T' was bound to a non-array value."
         }
     },
     {
@@ -130,7 +130,7 @@ export default [
         "params": [
             {
                 "source": `
-            // This creates a pattern with two unbound rest variables
+            // This creates a pattern with two unbound spread variables
             function make_ambiguous(A, B, P) { P = [...A, 1, ...B]; }
             function test_ambiguous(A, B, P) {
                 make_ambiguous(A, B, P);
@@ -145,13 +145,17 @@ export default [
             }
         ],
         "debugKeys": ["generatedSource", "predicates", "traces"],
-        "throws": {
-            "name": "Error",
-            "message": "ArrayPattern is ambiguous: more than one rest variable ('A', 'B') is unbound."
+        "returns": {
+            "solutions": {
+                // technically there is a valid solution that a tweak to our algorithm *should* be able to find.
+                "ambiguous_unification": [{
+                    "A": [0], "B": [2, 1, 3], "P": [0, 1, 2, 1, 3]
+                }],
+            },
         }
     },
     {
-        "description": "Error: Pattern vs. Pattern (Both Unbound)",
+        "description": "Pattern vs. Pattern (Both Unbound)",
         "params": [
             {
                 "source": `
@@ -159,8 +163,8 @@ export default [
             function makeP2(S, P) { P = [1, ...S]; }
             function test_p_vs_p(A, T, S) {
                 var P1, P2;
-                makeP1(A, T, P1);
-                makeP2(S, P2);
+                makeP1(A, T, P1); // P1 = [A, ...T]
+                makeP2(S, P2); // P2 = [1, ...S]
                 P1 = P2; // Unify two unbound patterns
             }
         `,
@@ -172,9 +176,10 @@ export default [
             }
         ],
         "debugKeys": ["generatedSource", "predicates", "traces"],
-        "throws": {
-            "name": "RangeError",
-            "message": "Maximum call stack size exceeded"
+        "returns": {
+            "solutions": {
+                "pattern_vs_pattern": [{ "A": 1, "T": { "$var": "S" }, "S": { "$var": "S" } }]
+            }
         }
     }
 ]

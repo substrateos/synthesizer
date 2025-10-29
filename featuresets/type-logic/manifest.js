@@ -87,7 +87,6 @@ export default {
         'lib/logic/unify.js',
         'lib/logic/unify/ObjectPattern.js',
         'lib/logic/unify/ArrayPattern.js',
-        'lib/logic/unify/pattern.js',
         'lib/logic/unify/testShim.js',
         'lib/logic/unify/testShim/tests/objects.js',
         'lib/logic/unify/testShim/tests/lists.js',

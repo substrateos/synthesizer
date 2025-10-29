@@ -23,8 +23,8 @@ function _generatePattern(isObject, nodes) {
     for (const node of nodes) {
         if (node.type === 'RestElement' || node.type === 'SpreadElement') {
             hasRest = true
-            pushFixed(); // Push any fixed items before the rest
-            partsCode.push(reference(node.argument)); // Push the rest variable (Symbol)
+            pushFixed(); // Push any fixed items before the spread
+            partsCode.push(reference(node.argument)); // Push the spread variable (Symbol)
         } else {
             // It's a fixed item
             if (isObject) {
@@ -39,8 +39,10 @@ function _generatePattern(isObject, nodes) {
     pushFixed(); // Push any remaining fixed items
 
     if (hasRest || partsCode.length > 1) {
-        const ctor = isObject ? 'ObjectPattern' : 'ArrayPattern'
-        return `new ${ctor}(${partsCode.join(', ')})`;
+        if (isObject) {
+            return `new ObjectPattern([${partsCode.join(', ')}])`;
+        }
+        return `ArrayPattern.of(${partsCode.join(', ')})`;
     }
     return partsCode[0] || (isObject ? '{}' : '[]')
 }

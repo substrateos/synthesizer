@@ -1,170 +1,242 @@
-import { unifyTag, groundTag, reprTag } from "@/lib/logic/tags";
-import unifyPattern from "@/lib/logic/unify/pattern";
+import { unifyTag, groundTag, reprTag, symbolsTag } from "@/lib/logic/tags";
 
-export default class ObjectPattern {
+/**
+ * Returns true if value is a plain JS object.
+ */
+function isPlainObject(value) {
+    return typeof value === 'object' &&
+        value !== null &&
+        !Array.isArray(value) &&
+        !(value instanceof ObjectPattern);
+}
 
-    constructor(...parts) {
-        this.parts = parts;
+/**
+ * Flattens a 'parts' array into a single fixed-props object
+ * and an array of spread variables, grounding any pre-bound variables.
+ */
+function flattenParts(ground, parts, bindings) {
+    const fixedProps = {};
+    const spreads = [];
+    for (const part of parts) {
+        if (!part) continue;
+
+        // 'part' is the original term (e.g., Symbol('T') or {a: 1})
+        // 'p' is the grounded value (e.g., "not_an_object" or {a: 1})
+        const p = ground(part, bindings);
+
+        if (typeof p === 'symbol') {
+            spreads.push(p);
+        } else if (p instanceof ObjectPattern) {
+            // Recursively flatten pre-bound patterns
+            const flat = flattenParts(ground, p.parts, bindings);
+            Object.assign(fixedProps, flat.fixedProps);
+            spreads.push(...flat.spreads);
+        } else if (isPlainObject(p)) {
+            Object.assign(fixedProps, p);
+        } else {
+            // This is the error case. `part` was a spread (Symbol)
+            // but its grounded value `p` is not a valid object component.
+            if (typeof part === 'symbol') {
+                throw new Error(`Cannot ground ObjectPattern: spread variable '${part.description}' was bound to a non-object value.`);
+            }
+        }
+    }
+    return { fixedProps, spreads };
+}
+
+/**
+ * Builds the simplest possible term (plain object, Symbol, or new ObjectPattern)
+ * from a set of fixed properties and spreads.
+ */
+function buildPatternTerm(fixedProps, spreads, isExact = false) {
+    const hasFixed = Object.keys(fixedProps).length > 0;
+
+    if (spreads.length === 0) {
+        // No spreads. Just a plain object.
+        return fixedProps;
+    }
+    if (spreads.length === 1 && !hasFixed) {
+        // One spread, no fixed keys. Just a Symbol.
+        return spreads[0];
+    }
+    // A complex pattern is required.
+    const parts = [];
+    if (hasFixed) {
+        parts.push(fixedProps);
+    }
+    parts.push(...spreads);
+    return new ObjectPattern(parts, { isExact });
+}
+
+/**
+ * Symmetrically unifies one pattern's spreads against the needs of the other.
+ */
+function unifySpreadsAgainstNeeds(unify, spreads, needs, bindings, location) {
+    // Ground the 'needs' using the current bindings
+    const flat_needs = flattenParts(unify.ground, [needs.fixedProps, ...needs.spreads], bindings);
+
+    // Build the simplest possible term for what is needed
+    // Needs are always "exact" in symmetric unification
+    const needsTerm = buildPatternTerm(flat_needs.fixedProps, flat_needs.spreads, true);
+
+    // Build the simplest possible term for the spreads we have
+    const spreadsTerm = buildPatternTerm({}, spreads, true);
+
+    // Unify them.
+    return unify(spreadsTerm, needsTerm, bindings, location);
+}
+
+/**
+ * Symmetrically unifies two ObjectPatterns.
+ * This is for pattern-vs-pattern unification.
+ */
+function unifySymmetricPatterns(unify, parts1, parts2, bindings, location) {
+    // Flatten both patterns
+    const p1 = flattenParts(unify.ground, parts1, bindings);
+    const p2 = flattenParts(unify.ground, parts2, bindings);
+
+    const allKeys = new Set([...Object.keys(p1.fixedProps), ...Object.keys(p2.fixedProps)]);
+    const p1_needs = { fixedProps: {}, spreads: [] }; // What p1's spreads must account for
+    const p2_needs = { fixedProps: {}, spreads: [] }; // What p2's spreads must account for
+
+    // Unify common fixed keys and sort remaining keys into 'needs'
+    for (const key of allKeys) {
+        const in1 = Object.hasOwn(p1.fixedProps, key);
+        const in2 = Object.hasOwn(p2.fixedProps, key);
+
+        if (in1 && in2) {
+            // Common key: Unify values
+            bindings = unify(p1.fixedProps[key], p2.fixedProps[key], bindings, location);
+            if (bindings === null) return null;
+        } else if (in1 && !in2) {
+            // Key only in p1: p2's spreads must account for it
+            p2_needs.fixedProps[key] = p1.fixedProps[key];
+        } else if (!in1 && in2) {
+            // Key only in p2: p1's spreads must account for it
+            p1_needs.fixedProps[key] = p2.fixedProps[key];
+        }
     }
 
-    isConcreteType(value) {
-        return typeof value === 'object' && value !== null && !Array.isArray(value);
+    // Add the other pattern's spreads to our 'needs'
+    p1_needs.spreads.push(...p2.spreads);
+    p2_needs.spreads.push(...p1.spreads);
+
+    // Cross-unify needs vs. spreads.
+    bindings = unifySpreadsAgainstNeeds(unify, p1.spreads, p1_needs, bindings, location);
+    if (bindings === null) return null;
+
+    // Must use the *new* bindings from the first pass
+    bindings = unifySpreadsAgainstNeeds(unify, p2.spreads, p2_needs, bindings, location);
+    return bindings;
+}
+
+class ObjectPattern {
+    /**
+     * @param {Array<object|Symbol>} parts - An ordered list of pattern parts,
+     * e.g., [ {a: 1}, Symbol('R'), {c: 3} ]
+     * @param {object} options - Configuration options
+     * @param {boolean} options.isExact - If true, requires an exact key match (no extra keys).
+     */
+    constructor(parts, { isExact = false } = {}) {
+        this.parts = parts || [];
+        this.isExact = isExact;
     }
 
-    getConcreteValue(canonical) {
-        return canonical.fixedProps;
-    }
-
-    reduce(resolve, bindings) {
-        const fixedProps = {};
-        const restVars = [];
-        const unboundRestSymbols = []; // For ambiguity check
-
+    *[symbolsTag](symbols) {
         for (const part of this.parts) {
             if (typeof part === 'symbol') {
-                const { value: resolvedPart } = resolve(part, bindings);
-                if (typeof resolvedPart === 'symbol') {
-                    // Check for ambiguity
-                    if (unboundRestSymbols.length > 0) {
-                         const existingNames = unboundRestSymbols.map(s => `'${s.description}'`).join(', ');
-                         throw new Error(`ObjectPattern is ambiguous: more than one rest variable (${existingNames}, '${resolvedPart.description}') is unbound.`);
-                    }
-                    restVars.push(resolvedPart);
-                    unboundRestSymbols.push(resolvedPart);
-                // } else {
-                //     if (!this.isConcreteType(resolvedPart)) throw new Error(`ObjectPattern rest variable '${part.description}' was bound to a non-object value.`);
-                //     Object.assign(fixedProps, resolvedPart);
-                }
+                yield part;
             } else {
-                Object.assign(fixedProps, part);
+                yield* symbols(part);
             }
         }
-        return { fixedProps, restVars };
-    }
-
-    unifyWithConcrete(unify, canonical, value, bindings, location) {
-        const { fixedProps, restVars } = canonical;
-        const valueKeys = new Set(Object.keys(value));
-
-        for (const key in fixedProps) {
-            if (!Object.hasOwn(value, key)) return null;
-            bindings = unify(fixedProps[key], value[key], bindings, location);
-            if (bindings === null) return null;
-            valueKeys.delete(key);
-        }
-
-        const restObj = {};
-        for (const key of valueKeys) restObj[key] = value[key];
-
-        if (restVars.length === 0) {
-            // No rest variable in the pattern. Succeed only if no extra keys in value.
-            if (Object.keys(restObj).length === 0) {
-                return bindings; // Success, exact match
-            } else {
-                return null; // Pattern has no rest, but value has extra keys -> Fail
-            }
-        } else if (restVars.length === 1) {
-            // Exactly one rest variable. Unify it with the remaining properties.
-            const restVar = restVars[0];
-            return unify(restVar, restObj, bindings, location); // Unify the single rest variable
-        } else {
-            // Multiple unbound rests detected during unification.
-            // This indicates an ambiguity that should ideally be caught earlier by reduce.
-            // For safety, we fail here. Consider adding an explicit check in reduce.
-            // NOTE: If reduce is updated, this else might become unreachable.
-            // console.warn("Ambiguity detected during ObjectPattern unification (multiple unbound rests)."); // Optional warning
-            return null; // Fail due to ambiguity
-        }
-    }
-
-    unifyWithPattern(unify, p1, p2, bindings, location) {
-        const p1_fixed = p1.fixedProps, p2_fixed = p2.fixedProps;
-        const p1_rests = p1.restVars, p2_rests = p2.restVars;
-
-        const allKeys = new Set([...Object.keys(p1_fixed), ...Object.keys(p2_fixed)]);
-        const p1_rest_props = {}, p2_rest_props = {};
-
-        for (const key of allKeys) {
-            const in1 = Object.hasOwn(p1_fixed, key);
-            const in2 = Object.hasOwn(p2_fixed, key);
-
-            if (in1 && in2) {
-                bindings = unify(p1_fixed[key], p2_fixed[key], bindings, location);
-            } else if (in1 && !in2) {
-                if (p2_rests.length === 0) return null;
-                p2_rest_props[key] = p1_fixed[key];
-            } else if (!in1 && in2) {
-                if (p1_rests.length === 0) return null;
-                p1_rest_props[key] = p2_fixed[key];
-            }
-            if (bindings === null) return null;
-        }
-
-        // p1_needs: Everything p1's rests must account for.
-        // This includes the fixed props ONLY in p2, plus ALL of p2's rests.
-        const p1_needs = new ObjectPattern([p2_rest_props, ...p2_rests]);
-
-        // p2_needs: Symmetrically, everything p2's rests must account for.
-        const p2_needs = new ObjectPattern([p1_rest_props, ...p1_rests]);
-
-        // Create temporary patterns representing just the rests of each pattern.
-        // e.g., if p1 was {a:1, ...R, ...S}, this is {...R, ...S}
-        const p1_rest_pattern = new ObjectPattern(p1_rests);
-        const p2_rest_pattern = new ObjectPattern(p2_rests);
-
-        // Symmetrically unify:
-        // Does p1's rests satisfy p2's needs?
-        bindings = unify(p1_rest_pattern, p2_needs, bindings, location);
-        if (bindings === null) return null;
-
-        // Does p2's rests satisfy p1's needs?
-        return unify(p2_rest_pattern, p1_needs, bindings, location);
     }
 
     [reprTag](repr) {
-        return `{${this.parts.map(part => {
+        const partsStr = this.parts.map(part => {
             if (typeof part === 'symbol') {
-                return `...${repr(part)}`
+                return `...${repr(part)}`;
             }
-            return Object.entries(part).map(([k,v]) => `${k}: ${repr(v)}`).join(', ');
-        }).join(", ")}}`
+            if (isPlainObject(part)) {
+                return Object.entries(part)
+                    .map(([k, v]) => `${k}: ${repr(v)}`)
+                    .join(', ');
+            }
+            return '';
+        }).join(', ');
+        return `{${partsStr}}`;
     }
 
     [unifyTag](unify, value, bindings, location) {
-        return unifyPattern(unify, this, value, bindings, location);
+        // Pattern-vs-Pattern Unification
+        if (value instanceof ObjectPattern) {
+            // This still uses the symmetric helper, which is complex
+            // but necessary for pattern-vs-pattern.
+            return unifySymmetricPatterns(unify, this.parts, value.parts, bindings, location);
+        }
+
+        // Pattern-vs-Value Unification
+        if (isPlainObject(value)) {
+            // Flatten the pattern
+            const flatPattern = flattenParts(unify.ground, this.parts, bindings);
+            const fixedProps = flatPattern.fixedProps;
+            const spreads = flatPattern.spreads;
+
+            // Partition the value
+            const restValue = {};
+            const fixedValue = {};
+            for (const key in value) {
+                if (Object.hasOwn(fixedProps, key)) {
+                    fixedValue[key] = value[key];
+                } else {
+                    restValue[key] = value[key];
+                }
+            }
+
+            // Unify Fixed Keys
+            for (const key in fixedProps) {
+                if (!Object.hasOwn(fixedValue, key)) {
+                    return null; // Key required by pattern is missing from value
+                }
+                bindings = unify(fixedProps[key], fixedValue[key], bindings, location);
+                if (bindings === null) return null;
+            }
+
+            // Unify Spreads Deterministically
+            if (spreads.length === 0) {
+                // No spreads. Fail if 'isExact' and there are leftovers.
+                if (this.isExact && Object.keys(restValue).length > 0) {
+                    return null;
+                }
+            } else if (spreads.length === 1) {
+                // 1 spread. It gets the *entire* rest.
+                bindings = unify(spreads[0], restValue, bindings, location);
+            } else {
+                // 2+ spreads. Last one gets the rest, others get {}.
+                const lastSpread = spreads[spreads.length - 1];
+                for (let i = 0; i < spreads.length - 1; i++) {
+                    bindings = unify(spreads[i], {}, bindings, location);
+                    if (bindings === null) return null;
+                }
+                bindings = unify(lastSpread, restValue, bindings, location);
+            }
+
+            return bindings; // Success
+        }
+
+        return null; // Fail
     }
 
     /**
      * Grounds the pattern based on the bindings.
-     * Respects the original order of parts for JS spread semantics.
-     * @param {function} ground - The main ground function.
-     * @param {object} bindings - The solution bindings.
-     * @returns {object} The resulting grounded object.
-     * @throws {Error} If a rest variable was bound to a non-object.
      */
     [groundTag](ground, bindings) {
-        let finalObj = {}; // Start with an empty object
+        // Flatten all parts.
+        const flat = flattenParts(ground, this.parts, bindings);
 
-        for (const part of this.parts) {
-            // Recursively ground the current part
-            const groundPart = ground(part, bindings);
-
-            if (typeof groundPart === 'symbol') {
-                // An unbound rest variable grounds to {}, so it's a no-op
-                continue;
-            } else if (this.isConcreteType(groundPart)) {
-                // It's a concrete object (either a fixed part or a bound rest).
-                // Spread its properties into the result. This handles
-                // the order-dependent overwriting correctly.
-                finalObj = { ...finalObj, ...groundPart };
-            } else {
-                // This occurs if a rest variable (Symbol) was bound to
-                // something other than an object (e.g., an array or primitive).
-                // The unification step should ideally prevent this, but
-                // we add a safeguard here.
-                throw new Error(`Cannot ground ObjectPattern: rest variable '${part.description}' was bound to non-object.`);
-            }
-        }
-        return finalObj;
+        // Build the simplest possible term from the grounded parts.
+        return buildPatternTerm(flat.fixedProps, flat.spreads, this.isExact);
     }
 }
+
+export default ObjectPattern
