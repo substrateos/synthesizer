@@ -73,7 +73,7 @@ export function resolve(term, bindings) {
     // Recursive step: Resolve the next value in the chain to get its
     // ultimate value and its own historical trace.
     const finalBinding = resolve(nextValue, bindings);
-    
+
     return {
         value: finalBinding.value,
         trace: [...binding.trace, ...finalBinding.trace],
@@ -128,21 +128,21 @@ export default function unify(term1, term2, bindings, location) {
     if (val1 === val2) return bindings;
 
     if (typeof val1 === 'symbol') {
-        if (contains(val2, val1)) return null; // Occurs check
+        if (contains(val2, val1)) { return null; } // Occurs check
         const event = { type: 'BIND', variable: val1, value: val2, location };
         const newTrace = [event, ...binding2.trace];
         return { ...bindings, [val1]: { value: val2, trace: newTrace } };
     }
 
     if (typeof val2 === 'symbol') {
-        if (contains(val1, val2)) return null; // Occurs check
+        if (contains(val1, val2)) { return null; } // Occurs check
         const event = { type: 'BIND', variable: val2, value: val1, location };
         const newTrace = [event, ...binding1.trace];
         return { ...bindings, [val2]: { value: val1, trace: newTrace } };
     }
 
     if (val1 && typeof val1[unifyTag] === 'function') {
-         return val1[unifyTag](unify, val2, bindings, location);
+        return val1[unifyTag](unify, val2, bindings, location);
     }
 
     if (val2 && typeof val2[unifyTag] === 'function') {
@@ -150,32 +150,24 @@ export default function unify(term1, term2, bindings, location) {
     }
 
     if (Array.isArray(val1) && Array.isArray(val2)) {
-        if (val1.length !== val2.length) return null;
-        let currentBindings = bindings;
+        if (val1.length !== val2.length) { return null; }
         for (let i = 0; i < val1.length; i++) {
-            currentBindings = unify(val1[i], val2[i], currentBindings, location);
-            if (currentBindings === null) return null;
+            bindings = unify(val1[i], val2[i], bindings, location);
+            if (bindings === null) { return null; }
         }
-        return currentBindings;
+        return bindings;
     }
 
     if (typeof val1 === 'object' && val1 !== null && typeof val2 === 'object' && val2 !== null) {
-        if (val1.constructor !== val2.constructor) return null;
+        if (val1.constructor !== val2.constructor) { return null; }
 
         // val1 is the pattern, val2 is the value.
-        const patternKeys = Object.keys(val1);
-        
-        let currentBindings = bindings;
-        for (const key of patternKeys) {
-            // Fail if a key from the pattern does not exist in the value.
-            if (!Object.hasOwn(val2, key)) {
-                return null;
-            }
-            // Recursively unify the values for that key.
-            currentBindings = unify(val1[key], val2[key], currentBindings, location);
-            if (currentBindings === null) return null;
+        for (const key in val1) {
+            if (!Object.hasOwn(val2, key)) { return null; }
+            bindings = unify(val1[key], val2[key], bindings, location);
+            if (bindings === null) { return null; }
         }
-        return currentBindings;
+        return bindings;
     }
 
     return null;
