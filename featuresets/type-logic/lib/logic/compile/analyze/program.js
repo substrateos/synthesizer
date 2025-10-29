@@ -1,5 +1,6 @@
 import findDeclaredVariables from '@/lib/logic/compile/analyze/util/findDeclaredVariables';
 import findDeclaredFunctions from '@/lib/logic/compile/analyze/util/findDeclaredFunctions';
+import positionTracker from '@/lib/logic/compile/analyze/util/positionTracker';
 import mangleName from '@/lib/logic/compile/analyze/util/mangleName';
 
 function analyzeScope(astNode, parentScope, parentPath = [], extraClauseProps) {
@@ -61,8 +62,10 @@ export default function analyzeProgram(ast, sourceCode) {
         return sourceCode.slice(node.start, node.end);
     };
 
+    const getRawSourceLocation = positionTracker(sourceCode)
+
     return {
-        topLevelScope: analyzeScope(ast, null, [], {getRawSource}),
+        topLevelScope: analyzeScope(ast, null, [], {getRawSource, getRawSourceLocation}),
         isModule: ast.body.some(node => node.type === 'ExportNamedDeclaration'),
     };
 }

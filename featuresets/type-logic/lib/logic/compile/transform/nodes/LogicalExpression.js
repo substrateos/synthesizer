@@ -5,9 +5,10 @@ import trimNode from '@/lib/logic/compile/transform/util/trim';
  * @param {object} expr - The LogicalExpression AST node.
  * @returns {object} A 'compare' instruction for the IR.
  */
-export default (expr) => {
+export default (expr, context) => {
     return { 
         type: 'compare', 
-        op: trimNode(expr) 
+        op: trimNode(expr),
+        startLocation: context.getRawSourceLocation(expr.start),
     };
 };

@@ -10,7 +10,8 @@ function traceEntryRepr(repr) {
     const port = event.type.padEnd(4);
     const traceId = `(${event.id}) `;
     const goalStr = `${event.predicate}(${event.args.map(arg => repr(arg)).join(', ')})`;
-    return `${indentation}${port}: ${traceId}${goalStr}`;
+    const location = (event.type === 'FAIL' && event.payload) ? ` @ line ${event.payload.line}, column ${event.payload.column}` : ''
+    return `${indentation}${port}: ${traceId}${goalStr}${location}`;
 }
 
 /**
@@ -34,7 +35,7 @@ export default function createTracer(trace, {maxLength}={}) {
             depth: goal.depth,
             predicate: goal.resolver[nameTag],
             args: goal.args,
-            payload, // Used for EXIT
+            payload, // Used for EXIT, FAIL
             lastExit: lastExitBindings.get(goal.id), // Used for REDO and FAIL
             [reprTag]: traceEntryRepr,
         };

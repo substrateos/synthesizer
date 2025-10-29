@@ -46,6 +46,7 @@ export default {
         'lib/logic/compile/analyze/util/mangleName.js',
         'lib/logic/compile/analyze/util/findDeclaredVariables.js',
         'lib/logic/compile/analyze/util/findDeclaredFunctions.js',
+        'lib/logic/compile/analyze/util/positionTracker.js',
         'lib/logic/compile/analyze/util/visit.js',
         'lib/logic/compile/analyze/program.js',
 

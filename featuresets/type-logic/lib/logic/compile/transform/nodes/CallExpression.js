@@ -11,7 +11,7 @@ import transformGlobals from '@/lib/logic/compile/transform/globals'; // Handles
  * @returns {object} The subgoal IR object.
  */
 export default function transformCallExpression(node, context) {
-    // 1. Handle Built-ins (e.g., Logic.findall) first
+    // 1. Handle Built-ins (e.g., Logic.all) first
     const globalGoal = transformGlobals(node, context);
     if (globalGoal) {
         return globalGoal;
@@ -37,6 +37,7 @@ export default function transformCallExpression(node, context) {
             type: 'subgoal',
             call: trimNode(node), // Contains the variable name in node.callee
             isDynamic: true,      // Mark as dynamic
+            startLocation: context.getRawSourceLocation(node.start),
         };
     }
 
@@ -46,6 +47,7 @@ export default function transformCallExpression(node, context) {
             call: trimNode(node),
             resolverName: resolution.definition.mangledName,
             scopeDepth: resolution.scope.depth, 
+            startLocation: context.getRawSourceLocation(node.start),
         };
     }
 

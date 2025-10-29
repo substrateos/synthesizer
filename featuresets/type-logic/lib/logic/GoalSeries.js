@@ -6,12 +6,13 @@ export default function GoalSeries({nextID=1, defaultSchedulerClass=DFS, default
     // It tracks the overall state for that query, including solutions found, and
     // pending work (choice points/forks).
     return class Goal {
-        constructor({parent, key, resolver, args, scheduler, tracer}) {
+        constructor({parent, key, resolver, args, scheduler, tracer, location}) {
             this.id = nextID++
             this.resolver = resolver
             this.args = args
             this.generator = resolver.apply(null, args)
             this.tracer = tracer || defaultTracer
+            this.location = location
 
             this.scheduler = scheduler || new defaultSchedulerClass()
             this.subgoals = new Map()
@@ -28,7 +29,7 @@ export default function GoalSeries({nextID=1, defaultSchedulerClass=DFS, default
             // A "task" is a single unit of work for a resolver.
             // It represents one attempt to advance one possible proof path.
             // The first time a path is tried, we don't have a solution, or feedback, or a resume token.
-            this.schedule({trace: "CALL"})
+            this.schedule({trace: ["CALL", location]})
         }
 
         schedule(task) {
@@ -160,21 +161,21 @@ export default function GoalSeries({nextID=1, defaultSchedulerClass=DFS, default
             this.schedule({resume: resumeForSubgoalSolution, subgoalSolution, subgoalRedoKey})
         }
 
-        subgoalCall(resume, resolver, args, tracer) {
+        subgoalCall(resume, resolver, args, tracer, location) {
             const key = Symbol()
             const schedulerClass = resolver[configTag]?.schedulerClass
             const scheduler = schedulerClass ? new schedulerClass() : this.scheduler
-            const subgoal = new Goal({ parent: this, key, resolver, scheduler, args, tracer: tracer || this.tracer });
+            const subgoal = new Goal({ parent: this, key, resolver, scheduler, args, tracer: tracer || this.tracer, location });
             this.subgoals.set(key, subgoal);
             this.#subgoalSchedule(resume, subgoal)
         }
 
-        subgoalRedo(resume, key) {
+        subgoalRedo(resume, key, location) {
             const subgoal = this.subgoals.get(key);
-            subgoal.tracer?.(subgoal, 'REDO')
+            subgoal.tracer?.(subgoal, 'REDO', location)
             // update our resume token, then switch to subgoal
             if (!subgoal || subgoal.isComplete) {
-                subgoal.tracer?.(subgoal, 'FAIL')
+                subgoal.tracer?.(subgoal, 'FAIL', location)
                 this.#resumeWithSubgoalSolution(resume, subgoal, undefined)
             } else {
                 this.#subgoalSchedule(resume, subgoal)
@@ -227,7 +228,7 @@ export default function GoalSeries({nextID=1, defaultSchedulerClass=DFS, default
 
                 const task = next.task
                 if (task.trace) {
-                    goal.tracer?.(goal, task.trace)
+                    goal.tracer?.(goal, ...task.trace)
                 }
 
                 // Run the generator
@@ -261,13 +262,13 @@ export default function GoalSeries({nextID=1, defaultSchedulerClass=DFS, default
                 case 'call': {
                     switch (signal.op || 'call') {
                         case 'call': { 
-                            const {resume, resolver, goal: args, tracer} = signal;
-                            currentGoal.subgoalCall(resume, resolver, args, tracer)
+                            const {resume, resolver, goal: args, tracer, location} = signal;
+                            currentGoal.subgoalCall(resume, resolver, args, tracer, location)
                             break;
                         }
                         case 'redo': {
-                            const {resume, key} = signal
-                            currentGoal.subgoalRedo(resume, key)
+                            const {resume, key, location} = signal
+                            currentGoal.subgoalRedo(resume, key, location)
                             break;
                         }
                         case 'done': {
@@ -314,7 +315,7 @@ export default function GoalSeries({nextID=1, defaultSchedulerClass=DFS, default
 
                 case 'fail': {
                     if (currentGoal.checkCompleted()) {
-                        currentGoal.tracer?.(currentGoal, 'FAIL');
+                        currentGoal.tracer?.(currentGoal, 'FAIL', signal.location);
                         if (currentGoal.notify) {
                             currentGoal = currentGoal.notifySolution(undefined, undefined)
                         } else {

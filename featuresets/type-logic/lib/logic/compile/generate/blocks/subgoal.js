@@ -12,7 +12,7 @@ import ground from '@/lib/logic/compile/generate/blocks/ground';
  * @returns {string} The generated code block.
  */
 export default function generateSubgoalBlock(subgoal, resumeTokenProperties, pc) {
-    const { call, isDynamic, resolverName, scopeDepth, goalArgs } = subgoal;
+    const { call, isDynamic, resolverName, scopeDepth, goalArgs, startLocation } = subgoal;
 
     // This block prepares the `resolver` (the function to call)
     let resolverSetup;
@@ -24,7 +24,7 @@ const resolver = ${value(call.callee, 'bindings')};
 
 if (typeof resolver !== 'function') {
     // The variable didn't hold a function, fail the call.
-    yieldValue = { type: 'fail' };
+    yieldValue = { type: 'fail', location };
     continue;
 }
 `;
@@ -48,6 +48,7 @@ const resolver = ${resolverName}.bind(null, ${scopes});
     // The rest of the logic (switch on oppc) is about state management
     // (CALL, REDO, EXIT, FAIL) and remains unchanged.
     return `
+const location = ${JSON.stringify(startLocation)}
 switch (oppc) {
 case undefined: { // This is the first CALL for this subgoal
     ${resolverSetup}
@@ -56,7 +57,8 @@ case undefined: { // This is the first CALL for this subgoal
         op: 'call',
         resolver, // The function (bound or dynamic)
         goal: ${goalArgsCode}, // The arguments
-        resume: { ${resumeTokenProperties}, pc: ${pc}, oppc: 1 }
+        resume: { ${resumeTokenProperties}, pc: ${pc}, oppc: 1 },
+        location,
     };
     continue;
 }
@@ -68,6 +70,7 @@ case 0: { // This is a REDO request
         op: 'redo',
         key: resume.subgoalRedoKey, // Key provided by previous EXIT
         resume: { ${resumeTokenProperties}, pc: ${pc}, oppc: 1 },
+        location,
     };
     continue;
 }
@@ -84,6 +87,7 @@ case 1: { // Resuming after a subgoal EXIT or FAIL
                 resume: { // Continue forward *now* with the current solution
                     ${resumeTokenProperties}, pc: ${pc + 1}, bindings: { ...bindings, ...subgoalSolution },
                 },
+                location,
             };
             continue;
         } else {
@@ -97,7 +101,7 @@ case 1: { // Resuming after a subgoal EXIT or FAIL
         }
     } else {
         // The subgoal failed (subgoalSolution is undefined).
-        yieldValue = { type: 'fail' };
+        yieldValue = { type: 'fail', location };
         continue;
     }
 }

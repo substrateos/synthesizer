@@ -72,7 +72,7 @@ export default function transformAssignmentExpression(expr, context) {
         const rhsName = expr.right.name;
 
         if (rhsName === '_') {
-            return { type: 'unify', op: trimNode(expr) }; // Fall through to default unification
+            return { type: 'unify', op: trimNode(expr), startLocation: context.getRawSourceLocation(expr.left.start) }; // Fall through to default unification
         }
 
         const resolution = context.scope.resolveName(rhsName);
@@ -97,7 +97,7 @@ export default function transformAssignmentExpression(expr, context) {
 
             op.right = { type: 'Identifier', name: `${resolution.definition.mangledName}.bind(null, ${scopes})` };
 
-            return { type: 'unify', op, isRightAlreadyResolved: true };
+            return { type: 'unify', op, isRightAlreadyResolved: true, startLocation: context.getRawSourceLocation(op.left.start) };
         }
         // If resolution.type === 'variable', fall through to default unification.
     }
@@ -105,5 +105,5 @@ export default function transformAssignmentExpression(expr, context) {
     // --- Default Case: Standard Unification ---
     // Handles X=Y, X=1, X=[H|T], X={a:A}, etc.
     // No special handling needed, just pass the trimmed AST node.
-    return { type: 'unify', op: trimNode(expr) };
+    return { type: 'unify', op: trimNode(expr), startLocation: context.getRawSourceLocation(expr.left.start) };
 }
