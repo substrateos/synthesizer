@@ -64,7 +64,7 @@ You define your program with a `solve` tagged template and can immediately query
 ```javascript
 
 // Define the program. The transpilation happens only once.
-const { planet, gas_giant } = logic.solve`
+let { planet, gas_giant } = logic.solve`
     // Facts are function declarations with default parameters and an empty body.
     function planet(name='mercury', type='rocky') {}
     function planet(name='venus', type='rocky') {}
@@ -80,10 +80,10 @@ const { planet, gas_giant } = logic.solve`
 
 
 // Create symbolic variables for use in queries.
-const { P } = logic.vars();
+let { P } = logic.vars();
 
 // Run queries by calling the destructured functions.
-const allGasGiants = [...gas_giant(P)];
+let allGasGiants = [...gas_giant(P)];
 
 console.log(allGasGiants);
 //> [ { P: 'jupiter' }, { P: 'saturn' } ]
@@ -109,7 +109,7 @@ Each example below is a small, complete program. You can run them individually t
 You can define simple data (facts) and combine them with rules. The `path` rule is recursive, which allows it to find paths of any length.
 
 ```javascript
-const { path } = logic.solve`
+let { path } = logic.solve`
     // Facts: Define a simple graph using function declarations
     function edge(from='a', to='b') {}
     function edge(from='b', to='c') {}
@@ -129,8 +129,8 @@ const { path } = logic.solve`
 `;
 
 // Query: Find all nodes reachable from 'a'
-const { X } = logic.vars();
-const results = [...path('a', X)];
+let { X } = logic.vars();
+let results = [...path('a', X)];
 
 console.log(results);
 //> [ { X: 'b' }, { X: 'd' }, { X: 'c' } ]
@@ -143,13 +143,13 @@ console.log(results);
 Use JavaScript's array destructuring syntax in a rule's head for powerful and immediate pattern matching. The `Head=H` syntax is transpiled into a unification goal.
 
 ```javascript
-const { list_head } = logic.solve`
+let { list_head } = logic.solve`
     // Array destructuring: Binds H to the first element
     // and unifies the 'Head' parameter with H.
     function list_head([H, ..._], Head=H) {}
 `;
 
-const { H } = logic.vars();
+let { H } = logic.vars();
 
 // Query: Get the head of a list
 console.log([...list_head([10, 20, 30], H)]);
@@ -163,16 +163,16 @@ console.log([...list_head([10, 20, 30], H)]);
 Use object destructuring in a rule's head to match and extract properties from a JavaScript object. The `Result=Name` syntax is transpiled into a unification goal.
 
 ```javascript
-const { person_name } = logic.solve`
+let { person_name } = logic.solve`
     // 'name: Name' aliases the property to an internal variable 'Name'.
     // 'Result=Name' is transpiled into a unification goal.
     function person_name({name: Name, age: _}, Result=Name) {}
 `;
 
-const { X } = logic.vars();
+let { X } = logic.vars();
 
 // Query: Get the 'name' from an object
-const person = { name: 'alice', age: 30, location: 'UK' };
+let person = { name: 'alice', age: 30, location: 'UK' };
 console.log([...person_name(person, X)]);
 //> [ { X: 'alice' } ]
 ```
@@ -184,14 +184,14 @@ console.log([...person_name(person, X)]);
 Wrap arithmetic expressions in `Logic.js()` function to signal the engine to compute the result and unify it.
 
 ```javascript
-const { add } = logic.solve`
+let { add } = logic.solve`
     // Wrap arithmetic in Logic.js() to unify the result
     function add(A, B, Sum) {
         Sum = Logic.js(A + B);
     }
 `;
 
-const { Sum } = logic.vars();
+let { Sum } = logic.vars();
 
 // Query: Calculate a sum
 console.log([...add(5, 4, Sum)]);
@@ -205,7 +205,7 @@ console.log([...add(5, 4, Sum)]);
 Standard JavaScript comparison operators (`>=`, `<`, `===`, etc.) can be used as goals. A comparison acts as a rule that can either succeed or fail.
 
 ```javascript
-const { is_adult } = logic.solve`
+let { is_adult } = logic.solve`
     // This rule succeeds only if the comparison is true
     function is_adult(Age) {
         Age >= 18;
@@ -226,14 +226,14 @@ console.log([...is_adult(10)]);
 Use Logic.js() to run any JavaScript expression. The engine resolves logic variables (like First and Last) to their values before executing the expression.
 
 ```javascript
-const { full_name } = logic.solve`
+let { full_name } = logic.solve`
     // Logic.js() resolves logic vars, then runs the JS expression
     function full_name(First, Last, Full) {
         Full = Logic.js(First + " " + Last);
     }
 `;
 
-const { F } = logic.vars();
+let { F } = logic.vars();
 
 // Query: Compute a full name
 console.log([...full_name('John', 'Doe', F)]);
@@ -247,7 +247,7 @@ console.log([...full_name('John', 'Doe', F)]);
 Nested rules are a way to add context-specific alternatives. The inner `status` rule "shadows" the outer one. The engine tries the local rule first, then backtracks to find the global rule.
 
 ```javascript
-const { test_shadowing } = logic.solve`
+let { test_shadowing } = logic.solve`
     // The global 'status' rule
     function status(S) {
         S = 'global';
@@ -265,7 +265,7 @@ const { test_shadowing } = logic.solve`
     }
 `;
 
-const { S } = logic.vars();
+let { S } = logic.vars();
 
 // Query: Find all solutions for 'status(S)'
 console.log([...test_shadowing(S)]);
@@ -278,7 +278,7 @@ console.log([...test_shadowing(S)]);
 You can pass a predicate as a variable (P). This allows you to create generic, higher-order rules like map that apply an operation to a list.
 
 ```javascript
-const { map, increment } = logic.solve`
+let { map, increment } = logic.solve`
     // A simple operation we want to apply
     function increment(N, R) {
         R = Logic.js(N + 1);
@@ -293,7 +293,7 @@ const { map, increment } = logic.solve`
     }
 `;
 
-const { List } = logic.vars();
+let { List } = logic.vars();
 
 // Query: Pass the 'increment' predicate as an argument
 results = [...map([10, 20], List, increment)]
@@ -308,7 +308,7 @@ console.log(results);
 Use the `!` operator to negate a goal. The `can_vote(Age)` goal will only succeed if the `is_minor(Age)` sub-goal *fails*.
 
 ```javascript
-const { can_vote } = logic.solve`
+let { can_vote } = logic.solve`
     // Fact: 15 is a minor
     function is_minor(age=15) {}
     
@@ -333,7 +333,7 @@ console.log([...can_vote(20)]);
 Use `Logic.findall` to collect all possible solutions for a sub-goal into a single list.
 
 ```javascript
-const { get_all_items } = logic.solve`
+let { get_all_items } = logic.solve`
     // Facts: Items in different groups
     function item(group='a', id=1) {}
     function item(group='a', id=2) {}
@@ -347,7 +347,7 @@ const { get_all_items } = logic.solve`
     }
 `;
 
-const { List } = logic.vars();
+let { List } = logic.vars();
 
 // Query: Find all items in group 'a'
 console.log([...get_all_items('a', List)]);
@@ -361,7 +361,7 @@ console.log([...get_all_items('a', List)]);
 Use logic.solveAsync when you need to perform I/O or handle Promise-returning functions transparently. All queries will return AsyncIterators.
 
 ```javascript
-const { get_data, add_async } = logic.solveAsync`
+let { get_data, add_async } = logic.solveAsync`
     function add_async(A, Result) {
         var Val;
         // Get the async value
@@ -372,7 +372,7 @@ const { get_data, add_async } = logic.solveAsync`
 `;
 
 // Create symbolic variables
-const { R } = logic.vars();
+let { R } = logic.vars();
 
 console.log(await logic.all(add_async(5, R)));
 //> { R: 15 }
