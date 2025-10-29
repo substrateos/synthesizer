@@ -1,4 +1,5 @@
 import compare from '@/lib/logic/compile/generate/ops/compare';
+import debuggerOp from '@/lib/logic/compile/generate/ops/debugger';
 import js from '@/lib/logic/compile/generate/ops/js';
 import findall from '@/lib/logic/compile/generate/ops/findall';
 import is_ground from '@/lib/logic/compile/generate/ops/is_ground';
@@ -12,6 +13,7 @@ import unify from '@/lib/logic/compile/generate/ops/unify';
  */
 export default {
     compare,
+    debugger: debuggerOp,
     js,
     findall,
     is_ground,

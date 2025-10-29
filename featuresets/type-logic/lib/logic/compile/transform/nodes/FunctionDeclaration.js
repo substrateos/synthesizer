@@ -1,6 +1,7 @@
 import trimNode from '@/lib/logic/compile/transform/util/trim';
 import transformAssignment from '@/lib/logic/compile/transform/nodes/AssignmentExpression';
 import transformExpressionStatement from '@/lib/logic/compile/transform/nodes/ExpressionStatement';
+import transformDebuggerStatement from '@/lib/logic/compile/transform/nodes/DebuggerStatement';
 import transformVariableDeclaration from '@/lib/logic/compile/transform/nodes/VariableDeclaration';
 
 /**
@@ -36,12 +37,14 @@ function transformRuleBody(clauseInfo) {
     const astNode = clauseInfo.astNode;
     if (!astNode.body?.body) return [];
 
-    return astNode.body.body.flatMap(stmt => {
+    return astNode.body.body.flatMap((stmt, i) => {
         switch (stmt.type) {
+            case 'DebuggerStatement':
+                if (i === 0) { return [] } // handled in transformFunctionDeclaration
+                return transformDebuggerStatement(stmt, context);
             case 'ExpressionStatement':
                 return transformExpressionStatement(stmt, context);
             case 'VariableDeclaration':
-                // Check kind if necessary, though analyzeScopes handles scope
                 return transformVariableDeclaration(stmt, context);
             case 'FunctionDeclaration':
                 return []; // Handled by analysis
@@ -65,6 +68,10 @@ export default function transformFunctionDeclaration(clauseInfo, predicateMangle
         name: astNode.id.name,
         declaredVars: [...scope.declaredVariables.keys()],
         body: [
+            ...(clauseInfo.astNode?.body?.body?.[0]?.type === 'DebuggerStatement'
+                ? [transformDebuggerStatement(clauseInfo.astNode?.body?.body?.[0], clauseInfo)]
+                : []
+            ),
             {
                 type: 'unify',
                 isRightAlreadyResolved: true,
@@ -73,6 +80,7 @@ export default function transformFunctionDeclaration(clauseInfo, predicateMangle
                     left: { type: 'ArrayPattern', elements: astNode.params.map(trimNode) },
                     right: { type: 'Identifier', name: 'goal' },
                 },
+                startLocation: clauseInfo.getRawSourceLocation(astNode.start),
             },
             ...astNode.params.flatMap(p => getUnificationGoals(p, clauseInfo)),
             ...transformRuleBody(clauseInfo),
