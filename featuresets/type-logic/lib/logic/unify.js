@@ -1,24 +1,33 @@
 import {
     unifyTag,
     groundTag,
+    symbolsTag,
 } from '@/lib/logic/tags'
 
 /**
  * Recursively finds all unique symbols (logic variables) in a data structure.
  */
-export function* symbolsIn(term, symbols = new Set()) {
+export function* symbols(term, visited = new Set(), symbolsRec) {
+    if (!symbolsRec) {
+        symbolsRec = function* (o) { yield* symbols(o, visited, symbolsRec) }
+    }
     if (typeof term === 'symbol') {
-        if (!symbols.has(term)) {
-            symbols.add(term)
+        if (!visited.has(term)) {
+            visited.add(term)
             yield term
         }
     } else if (Array.isArray(term)) {
         for (const element of term) {
-            yield *symbolsIn(element, symbols)
+            yield *symbolsRec(element)
         }
-    } else if (typeof term === 'object' && term !== null) {
-        for (const value of Object.values(term)) {
-            yield *symbolsIn(value, symbols)
+    } else if (typeof term === 'object') {
+        if (symbolsTag in term) {
+            yield *term[symbolsTag](symbolsRec)
+        }
+        if (term !== null) {
+            for (const value of Object.values(term)) {
+                yield *symbolsRec(value)
+            }
         }
     }
 }
@@ -29,7 +38,7 @@ export function* symbolsIn(term, symbols = new Set()) {
  * @returns {boolean} True if the term is ground, false otherwise.
  */
 export function isGround(term) {
-    for (const symbol of symbolsIn(term)) {
+    for (const symbol of symbols(term)) {
         return false
     }
     return true
@@ -42,7 +51,7 @@ export function isGround(term) {
  * @returns {boolean} True if the symbol is found within the structure.
  */
 function contains(structure, sym) {
-    for (const symbol of symbolsIn(structure)) {
+    for (const symbol of symbols(structure)) {
         if (symbol === sym) return true;
     }
     
@@ -174,7 +183,7 @@ export default function unify(term1, term2, bindings, location) {
 }
 
 Object.assign(unify, {
-    symbolsIn,
+    symbols,
     isGround,
     resolve,
     ground,

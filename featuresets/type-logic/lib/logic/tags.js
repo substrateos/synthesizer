@@ -6,6 +6,7 @@ export const generatedSourceTag = '$generatedSource';
 export const reprTag = '$repr';
 export const unifyTag = '$unify';
 export const groundTag = '$ground';
+export const symbolsTag = '$symbols';
 
 export const resolverTags = [
     predicatesTag,
