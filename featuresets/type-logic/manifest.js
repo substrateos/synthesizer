@@ -77,6 +77,7 @@ export default {
         'lib/logic/compile/generate/ops/unify.js',
         'lib/logic/compile/generate/blocks/reference.js',
         'lib/logic/compile/generate/blocks/value.js',
+        'lib/logic/compile/generate/blocks/ground.js',
         'lib/logic/compile/generate/blocks/subgoal.js',
 
         'lib/logic/unify.js',

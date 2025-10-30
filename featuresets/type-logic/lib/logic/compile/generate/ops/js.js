@@ -1,9 +1,10 @@
 import value from '@/lib/logic/compile/generate/blocks/value';
+import ground from '@/lib/logic/compile/generate/blocks/ground';
 
 export default ({ target, rawString, logicVars }, clauseId, pc) => {
   // 1. Get the list of argument *values* to pass to the IIFE
   const resolvedArgValues = logicVars.map(varName => 
-    value({ type: 'Identifier', name: varName }, 'bindings')
+    ground({ type: 'Identifier', name: varName }, 'bindings')
   );
 
   // 2. Use the raw string directly as the IIFE body

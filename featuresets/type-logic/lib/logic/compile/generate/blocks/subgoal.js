@@ -1,5 +1,5 @@
 import value from '@/lib/logic/compile/generate/blocks/value';
-import { resolverTag } from '@/lib/logic/tags'; // Keep resolverTag for dynamic call check
+import ground from '@/lib/logic/compile/generate/blocks/ground';
 
 /**
  * Generates the complete 'switch(oppc){...}' block for a subgoal call.
@@ -43,7 +43,7 @@ const resolver = ${resolverName}.bind(null, ${scopes});
     // otherwise build the argument array from the AST.
     const goalArgsCode = goalArgs === 'goal'
         ? 'goal' // Pass the original 'goal' array variable
-        : `[${call.arguments.map(node => value(node, 'bindings')).join(', ')}]`;
+        : `[${call.arguments.map(node => ground(node, 'bindings')).join(', ')}]`;
 
     // The rest of the logic (switch on oppc) is about state management
     // (CALL, REDO, EXIT, FAIL) and remains unchanged.
