@@ -49,6 +49,8 @@ function contains(structure, sym) {
     return false;
 }
 
+const emptyTrace = Object.freeze([])
+
 /**
  * Resolves a term by following a chain of bindings. It recursively reconstructs
  * the complete historical trace for the final value.
@@ -61,7 +63,7 @@ export function resolve(term, bindings) {
     // Base case: If a term is not a variable or is unbound, it is its
     // own final value and has no history.
     if (typeof term !== 'symbol' || !Object.hasOwn(bindings, term)) {
-        return { value: term, trace: [] };
+        return { value: term, trace: emptyTrace };
     }
 
     // Get the binding for the current variable.
@@ -98,6 +100,7 @@ export function ground(term, bindings) {
     if (Array.isArray(value)) {
         return value.map(item => ground(item, bindings));
     }
+
     // Ensure we only recurse on plain objects, not special class instances.
     if (typeof value === 'object' && value !== null && value.constructor === Object) {
         const newObj = {};
