@@ -55,63 +55,66 @@ function createConfiguredQuery(config) {
     return query;
 }
 
-/**
- * A template tag function that transpiles a logic program and returns a
- * database of configurable, ready-to-query predicate functions.
- */
-function templateTag(baseConfig, strings, ...values) {
-    // Reconstruct the source code from the template literal parts. This handles
-    // both direct source (`solve`...`) and interpolated source (`solve`${...}`).
-    const source = strings.reduce((acc, str, i) => acc + str + (values[i] || ''), '');
+function createConfiguredTemplateTag(baseConfig) {
+    /**
+     * A template tag function that transpiles a logic program and returns a
+     * database of configurable, ready-to-query predicate functions.
+     */
+    function templateTag(strings, ...values) {
+        // Reconstruct the source code from the template literal parts. This handles
+        // both direct source (`solve`...`) and interpolated source (`solve`${...}`).
+        const source = strings.reduce((acc, str, i) => acc + str + (values[i] || ''), '');
 
-    baseConfig = {
-        ...baseConfig,
-        newGoal(...args) {
-            const Goal = GoalSeries({defaultSchedulerClass: this.defaultSchedulerClass})
-            const scheduler = this.schedulerClass ? new (this.schedulerClass)() : undefined
-            return new Goal({scheduler, resolver: this.resolver, args, tracer: this.tracer});
+        const initialConfig = {
+            ...baseConfig,
+            newGoal(...args) {
+                const Goal = GoalSeries({defaultSchedulerClass: this.defaultSchedulerClass})
+                const scheduler = this.schedulerClass ? new (this.schedulerClass)() : undefined
+                return new Goal({scheduler, resolver: this.resolver, args, tracer: this.tracer});
+            }
         }
+        const { generatedSource, utils } = compileProgram(source);
+
+        const factory = new Function(`return (${generatedSource})`);
+        const rawDatabase = factory()(utils);
+
+        const finalDatabase = {};
+        for (const predName in rawDatabase) {
+            const resolver = rawDatabase[predName];
+            resolver[nameTag] = predName;
+            finalDatabase[predName] = createConfiguredQuery({...initialConfig, resolver});
+        }
+        finalDatabase[generatedSourceTag] = generatedSource; 
+    
+        return finalDatabase;
     }
-    const { generatedSource, utils } = compileProgram(source);
-
-    const factory = new Function(`return (${generatedSource})`);
-    const rawDatabase = factory()(utils);
-
-    const finalDatabase = {};
-    for (const predName in rawDatabase) {
-        const resolver = rawDatabase[predName];
-        resolver[nameTag] = predName;
-        finalDatabase[predName] = createConfiguredQuery({...baseConfig, resolver});
+    templateTag.configure = (newConfig) => {
+        return createConfiguredTemplateTag({...baseConfig, ...newConfig})
     }
-    finalDatabase[generatedSourceTag] = generatedSource; 
-   
-    return finalDatabase;
+
+    return templateTag
 }
 
-export function solve(strings, ...values) {
-    return templateTag({
-        newQuery() {
-            const config = this
-            return function* (...args) {
-                const goal = config.newGoal(...args)
-                for (const solution of goal.solve()) {
-                    yield resolveSolution(args, solution)
-                }
+export const solve = createConfiguredTemplateTag({
+    newQuery() {
+        const config = this
+        return function* (...args) {
+            const goal = config.newGoal(...args)
+            for (const solution of goal.solve()) {
+                yield resolveSolution(args, solution)
             }
-        },
-    }, strings, ...values)
-}
+        }
+    },
+})
 
-export function solveAsync(strings, ...values) {
-    return templateTag({
-        newQuery() {
-            const config = this
-            return async function* (...args) {
-                const goal = config.newGoal(...args)
-                for await (const solution of goal.solveAsync()) {
-                    yield resolveSolution(args, solution)
-                }
+export const solveAsync = createConfiguredTemplateTag({
+    newQuery() {
+        const config = this
+        return async function* (...args) {
+            const goal = config.newGoal(...args)
+            for await (const solution of goal.solveAsync()) {
+                yield resolveSolution(args, solution)
             }
-        },
-    }, strings, ...values)
-}
+        }
+    },
+})
