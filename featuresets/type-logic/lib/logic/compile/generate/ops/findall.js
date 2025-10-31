@@ -1,3 +1,4 @@
+import ground from '@/lib/logic/compile/generate/blocks/ground';
 import value from '@/lib/logic/compile/generate/blocks/value';
 
 export default ({ target, call, template, resolverName, scopeDepth }, clauseId, pc) => {
@@ -8,7 +9,7 @@ export default ({ target, call, template, resolverName, scopeDepth }, clauseId, 
         : `scopes.length === ${scopeDepth - 1} ? [...scopes, {vars, bindings}] : scopes.slice(0, ${scopeDepth+1})`;
 
     // 2. Generate argument code
-    const goalArgsCode = `[${call.arguments.map(node => value(node, 'bindings')).join(', ')}]`;
+    const goalArgsCode = `[${call.arguments.map(node => ground(node, 'bindings')).join(', ')}]`;
 
     return `
 const findallSolutions = resume.findallSolutions ?? [];
@@ -29,7 +30,7 @@ case 1:
         const subgoalBindings = { ...bindings, ...subgoalSolution };
 
         // Build the result object from the template and add to list.
-        const subgoalResult = ${value(template, 'subgoalBindings')};
+        const subgoalResult = ${ground(template, 'subgoalBindings')};
         findallSolutions.push(subgoalResult);
 
         // If more solutions are available, get them. Otherwise, continue.
