@@ -59,321 +59,478 @@ This language is a hybrid that combines the declarative power of logic programmi
 
 ## Example Usage
 
-You define your program with a `solve` tagged template and can immediately query the predicates you've defined.
+You define your program with a `logic.solve` tagged template. This transpiles your rules and gives you back an object of queryable predicates.
+
+Let's define a few simple facts about students:
 
 ```javascript
-
-// Define the program. The transpilation happens only once.
-let { planet, gas_giant } = logic.solve`
-    // Facts are function declarations with default parameters and an empty body.
-    function planet(name='mercury', type='rocky') {}
-    function planet(name='venus', type='rocky') {}
-    function planet(name='jupiter', type='gas') {}
-    function planet(name='saturn', type='gas') {}
-
-    // Rules are standard JavaScript function declarations.
-    // A planet X is a gas_giant if it is a planet of type 'gas'.
-    function gas_giant(X) {
-        planet(X, 'gas');
-    }
+// Define the program. This happens once.
+let { student } = logic.solve`
+    // Facts are function declarations with default values.
+    function student(id=101, name='Alyssa P. Hacker') {}
+    function student(id=102, name='Ben Bitdiddle') {}
+    function student(id=103, name='Lem E. Tweakit') {}
 `;
 
+// --- Querying ---
 
-// Create symbolic variables for use in queries.
-let { P } = logic.vars();
+// 1. Create symbolic variables for your query.
+let { Name, ID } = logic.vars();
 
-// Run queries by calling the destructured functions.
-let allGasGiants = [...gas_giant(P)];
+// 2. Run queries by calling the predicate functions.
 
-console.log(allGasGiants);
-//> [ { P: 'jupiter' }, { P: 'saturn' } ]
+// Query 1: Find a specific student by ID.
+// This returns an iterator, so we use [...] to get all results.
+let result = [...student(101, Name)];
+console.log(result);
+//> [ { Name: 'Alyssa P. Hacker' } ]
 
-// The Query object is also an iterator.
-console.log('Rocky planets:');
-for (const solution of planet(P, 'rocky')) {
-    console.log(solution);
-}
-//> Rocky planets:
-//> { P: 'mercury' }
-//> { P: 'venus' }
+// Query 2: Find a specific student by name.
+result = [...student(ID, 'Ben Bitdiddle')];
+console.log(result);
+//> [ { ID: 102 } ]
+
+// Query 3: Find all students.
+// The engine will backtrack to find every matching fact.
+result = [...student(ID, Name)];
+console.log(result);
+//> [ 
+//>   { ID: 101, Name: 'Alyssa P. Hacker' },
+//>   { ID: 102, Name: 'Ben Bitdiddle' },
+//>   { ID: 103, Name: 'Lem E. Tweakit' } 
+//> ]
 ```
 
 -----
 
 ## Feature Examples
 
-Each example below is a small, complete program. You can run them individually to see how each feature works.
+All the following examples will build on a single "University" database, using classic MIT courses and students to show how features combine.
 
-### Facts, Rules, and Recursion
+#### 1. Facts, Rules, and Recursion
 
-You can define simple data (facts) and combine them with rules. The `path` rule is recursive, which allows it to find paths of any length.
-
-```javascript
-let { path } = logic.solve`
-    // Facts: Define a simple graph using function declarations
-    function edge(from='a', to='b') {}
-    function edge(from='b', to='c') {}
-    function edge(from='a', to='d') {}
-
-    // Rule 1 (Base Case): A path exists if there is a direct edge.
-    function path(X, Y) {
-        edge(X, Y);
-    }
-    // Rule 2 (Recursive Step): A path exists from X to Z
-    // if there is an edge from X to Y, and a path from Y to Z.
-    function path(X, Z) {
-        var Y;
-        edge(X, Y);
-        path(Y, Z);
-    }
-`;
-
-// Query: Find all nodes reachable from 'a'
-let { X } = logic.vars();
-let results = [...path('a', X)];
-
-console.log(results);
-//> [ { X: 'b' }, { X: 'd' }, { X: 'c' } ]
-```
-
------
-
-### Array Destructuring
-
-Use JavaScript's array destructuring syntax in a rule's head for powerful and immediate pattern matching. The `Head=H` syntax is transpiled into a unification goal.
+First, let's define data (**facts**) and logic (**rules**). The `all_prereqs` rule is recursive, allowing it to find dependency chains of any length.
 
 ```javascript
-let { list_head } = logic.solve`
-    // Array destructuring: Binds H to the first element
-    // and unifies the 'Head' parameter with H.
-    function list_head([H, ..._], Head=H) {}
-`;
+let { prereq, all_prereqs } = logic.solve`
+    // --- Facts ---
+    // prereq(Course, Requires)
+    function prereq(course='8.02', requires='8.01') {}
+    function prereq(course='8.01', requires='18.01') {}
+    function prereq(course='6.001', requires='18.01') {}
 
-let { H } = logic.vars();
-
-// Query: Get the head of a list
-console.log([...list_head([10, 20, 30], H)]);
-//> [ { H: 10 } ]
-```
-
------
-
-### Object Destructuring
-
-Use object destructuring in a rule's head to match and extract properties from a JavaScript object. The `Result=Name` syntax is transpiled into a unification goal.
-
-```javascript
-let { person_name } = logic.solve`
-    // 'name: Name' aliases the property to an internal variable 'Name'.
-    // 'Result=Name' is transpiled into a unification goal.
-    function person_name({name: Name, age: _}, Result=Name) {}
-`;
-
-let { X } = logic.vars();
-
-// Query: Get the 'name' from an object
-let person = { name: 'alice', age: 30, location: 'UK' };
-console.log([...person_name(person, X)]);
-//> [ { X: 'alice' } ]
-```
-
------
-
-### Arithmetic
-
-Wrap arithmetic expressions in `Logic.js()` function to signal the engine to compute the result and unify it.
-
-```javascript
-let { add } = logic.solve`
-    // Wrap arithmetic in Logic.js() to unify the result
-    function add(A, B, Sum) {
-        Sum = Logic.js(A + B);
-    }
-`;
-
-let { Sum } = logic.vars();
-
-// Query: Calculate a sum
-console.log([...add(5, 4, Sum)]);
-//> [ { Sum: 9 } ]
-```
-
------
-
-### Comparison
-
-Standard JavaScript comparison operators (`>=`, `<`, `===`, etc.) can be used as goals. A comparison acts as a rule that can either succeed or fail.
-
-```javascript
-let { is_adult } = logic.solve`
-    // This rule succeeds only if the comparison is true
-    function is_adult(Age) {
-        Age >= 18;
-    }
-`;
-
-// Query 1: Succeeds, returning one (empty) solution
-console.log([...is_adult(20)]);
-//> [ {} ]
-
-// Query 2: Fails, returning zero solutions
-console.log([...is_adult(10)]);
-//> []
-```
-
------
-
-Use Logic.js() to run any JavaScript expression. The engine resolves logic variables (like First and Last) to their values before executing the expression.
-
-```javascript
-let { full_name } = logic.solve`
-    // Logic.js() resolves logic vars, then runs the JS expression
-    function full_name(First, Last, Full) {
-        Full = Logic.js(First + " " + Last);
-    }
-`;
-
-let { F } = logic.vars();
-
-// Query: Compute a full name
-console.log([...full_name('John', 'Doe', F)]);
-//> [ { F: 'John Doe' } ]
-```
-
------
-
-### Lexical Scoping and Shadowing
-
-Nested rules are a way to add context-specific alternatives. The inner `status` rule "shadows" the outer one. The engine tries the local rule first, then backtracks to find the global rule.
-
-```javascript
-let { test_shadowing } = logic.solve`
-    // The global 'status' rule
-    function status(S) {
-        S = 'global';
+    // --- Rules ---
+    // Rule 1 (Base Case): 
+    // A Prereq is required if there is a direct fact.
+    function all_prereqs(Course, Prereq) {
+        prereq(Course, Prereq);
     }
     
-    function test_shadowing(S) {
-        // This local 'status' rule shadows the global one
-        function status(S) {
-            S = 'local';
-        }
+    // Rule 2 (Recursive Step): 
+    // A Prereq is also required if it's a prereq for another prereq.
+    function all_prereqs(Course, Prereq) {
+        var M; // An intermediate course
+        prereq(Course, M);
+        all_prereqs(M, Prereq); 
+    }
+`;
+
+// Query: Find all prerequisites for 8.02 (Physics II)
+let { P } = logic.vars();
+console.log([...all_prereqs('8.02', P)]);
+//> [ { P: '8.01' }, { P: '18.01' } ]
+```
+
+#### 2. Array Destructuring
+
+Use JavaScript's `[H, ...T]` (head/tail) syntax to write recursive rules that operate on lists. Let's define the classic `member` predicate.
+
+```javascript
+let { member } = logic.solve`
+    // Rule 1 (Base Case):
+    // An Item is a member of a list if it is the Head of the list.
+    // See "Caveats" section for why we use H=Item.
+    function member(Item, [H=Item, ..._]) {}
+    
+    // Rule 2 (Recursive Step):
+    // An Item is a member if it's in the Rest of the list.
+    function member(Item, [_    , ...Rest]) {
+        member(Item, Rest); 
+    }
+`;
+
+// Query: Find all members of Alyssa's course list.
+let { X } = logic.vars();
+let alyssas_courses = ['8.02', '18.01', '6.001'];
+console.log([...member(X, alyssas_courses)]);
+//> [ { X: '8.02' }, { X: '18.01' }, { X: '6.001' } ]
+```
+
+#### 3. Object Destructuring
+
+Use object destructuring in a rule's head to match and extract properties from native JavaScript objects.
+
+```javascript
+let { get_name } = logic.solve`
+    // This rule matches any object that has a 'name' property.
+    // 1. {name: Name, ..._} Binds the 'name' property to `Name`.
+    // 2. Result=Name Unifies the `Result` argument with `Name`.
+    function get_name({name: Name, ..._}, Result=Name) {}
+`;
+
+// Query: Get the name from a JS object.
+let alyssa = { id: 101, name: 'Alyssa P. Hacker', major: 'EECS' };
+let { N } = logic.vars();
+console.log([...get_name(alyssa, N)]);
+//> [ { N: 'Alyssa P. Hacker' } ]
+```
+
+#### 4. Comparison
+
+Use standard JavaScript comparison operators (`>=`, `<`, `===`, etc.) as logical goals. A comparison acts as a "constraint" that can either succeed or fail.
+
+```javascript
+let { course, is_high_workload } = logic.solve`
+    // --- Facts ---
+    // course(ID, Title, Hours)
+    function course(id='6.001', title='SICP', hours=15) {}
+    function course(id='8.01', title='Physics I', hours=12) {}
+    function course(id='18.01', title='Calculus I', hours=10) {}
+
+    // --- Rules ---
+    // A "high workload" course is one that requires
+    // 12 or more hours per week.
+    function is_high_workload(CourseID) {
+        var H;
+        course(CourseID, _, H); // Find the hours (H) for the course
+        H >= 12;                // Comparison goal succeeds or fails
+    }
+`;
+
+// Query: Find all high-workload courses.
+let { ID } = logic.vars();
+console.log([...is_high_workload(ID)]);
+//> [ { ID: '6.001' }, { ID: '8.01' } ]
+```
+
+#### 5. `Logic.js()` for Arithmetic
+
+Perform any JavaScript calculation by wrapping it in `Logic.js()`. The engine solves for variables *first*, then executes the JS expression.
+
+```javascript
+let { course, total_hours } = logic.solve`
+    // --- Facts ---
+    function course(id='6.001', title='SICP', hours=15) {}
+    function course(id='8.01', title='Physics I', hours=12) {}
+    function course(id='18.01', title='Calculus I', hours=10) {}
+
+    // --- Rules ---
+    // Rule 1 (Base Case): Total hours for an empty schedule is 0.
+    function total_hours(list=[], total=0) {}
+
+    // Rule 2 (Recursive Step):
+    function total_hours([H, ...T], Total) {
+        var H_Hours; // Hours for the head course
+        var T_Hours; // Hours for the tail (rest)
         
-        // This call will find the 'local' rule first.
-        // On backtracking, it will find the 'global' rule.
-        status(S);
+        course(H, _, H_Hours);   // 1. Find hours for the Head
+        total_hours(T, T_Hours); // 2. Recursively find hours for the Tail
+        
+        // 3. Unify Total with the JS calculation
+        Total = Logic.js(H_Hours + T_Hours);
     }
 `;
 
-let { S } = logic.vars();
-
-// Query: Find all solutions for 'status(S)'
-console.log([...test_shadowing(S)]);
-//> [ { S: 'local' }, { S: 'global' } ]
+// Query: Calculate total hours for Alyssa's schedule
+let { H } = logic.vars();
+let alyssas_schedule = ['6.001', '8.01']; // 15 + 12
+console.log([...total_hours(alyssas_schedule, H)]);
+//> [ { H: 27 } ]
 ```
 
------
+#### 6. `Logic.js()` for Expressions
 
-### Dynamic Subgoals (Higher-Order Logic)
-You can pass a predicate as a variable (P). This allows you to create generic, higher-order rules like map that apply an operation to a list.
+`Logic.js()` isn't just for math. It's for *any* JS expression, like string manipulation.
 
 ```javascript
-let { map, increment } = logic.solve`
-    // A simple operation we want to apply
-    function increment(N, R) {
-        R = Logic.js(N + 1);
-    }
-    
-    // A generic 'map' rule
-    // 'P' is a variable that will hold a predicate
-    function map(inp=[], out=[], p=_) {}
-    function map([H_in, ...T_in], [H_out, ...T_out], P) {
-        P(H_in, H_out); // Call the dynamic predicate
-        map(T_in, T_out, P);
+let { get_handle } = logic.solve`
+    // This rule generates a username "handle" from a full name.
+    function get_handle(FullName, Handle) {
+        // The engine passes the value of 'FullName'
+        // into the JavaScript expression.
+        Handle = Logic.js(
+            FullName.split(' ')[0].toLowerCase()
+        );
     }
 `;
 
-let { List } = logic.vars();
-
-// Query: Pass the 'increment' predicate as an argument
-results = [...map([10, 20], List, increment)]
-console.log(results);
-//> [ { List: [11, 21] } ]
+// Query: Find the handle for "Alyssa P. Hacker"
+let { Handle } = logic.vars();
+console.log([...get_handle('Alyssa P. Hacker', Handle)]);
+//> [ { Handle: 'alyssa' } ]
 ```
 
-------
+#### 7. `Logic.findall`
 
-### Negation as Failure (`!`)
-
-Use the `!` operator to negate a goal. The `can_vote(Age)` goal will only succeed if the `is_minor(Age)` sub-goal *fails*.
+The `Logic.findall` built-in collects all possible solutions for a sub-goal into a single list. Its power comes from the `Template` argument (the 1st arg), which lets you format the results.
 
 ```javascript
-let { can_vote } = logic.solve`
-    // Fact: 15 is a minor
-    function is_minor(age=15) {}
-    
-    function can_vote(Age) {
-        !is_minor(Age); // Negation: "is not minor"
-    }
-`;
+let { course, get_course_catalog } = logic.solve`
+    // --- Facts ---
+    function course(id='6.001', title='SICP', hours=15) {}
+    function course(id='8.01', title='Physics I', hours=12) {}
+    function course(id='18.01', title='Calculus I', hours=10) {}
 
-// Query 1: Fails, because is_minor(15) succeeds
-console.log([...can_vote(15)]);
-//> []
-
-// Query 2: Succeeds, because is_minor(20) fails
-console.log([...can_vote(20)]);
-//> [ {} ]
-```
-
------
-
-### `Logic.findall`
-
-Use `Logic.findall` to collect all possible solutions for a sub-goal into a single list.
-
-```javascript
-let { get_all_items } = logic.solve`
-    // Facts: Items in different groups
-    function item(group='a', id=1) {}
-    function item(group='a', id=2) {}
-    function item(group='b', id=3) {}
-
-    // Rule: Get all items for a group
-    function get_all_items(Group, List) {
-        var I;
+    // --- Rules ---
+    // This rule uses findall to get all courses and
+    // format them into a list of objects.
+    function get_course_catalog(Catalog) {
+        var ID, Title; // Template variables
+        
         // Logic.findall(Template, Goal, ResultList)
-        Logic.findall(I, item(Group, I), List);
+        Logic.findall(
+            {id: ID, title: Title},  // 1. Template: Build this object
+            course(ID, Title, _),  // 2. Goal: For each course...
+            Catalog                // 3. ResultList: Put them in Catalog
+        );
     }
 `;
 
-let { List } = logic.vars();
-
-// Query: Find all items in group 'a'
-console.log([...get_all_items('a', List)]);
-//> [ { List: [1, 2] } ]
+// Query: Get the entire course catalog.
+let { C } = logic.vars();
+let [catalog] = get_course_catalog(C);
+console.log(catalog.C);
+//> [
+//>   { id: '6.001', title: 'SICP' },
+//>   { id: '8.01', title: 'Physics I' },
+//>   { id: '18.01', title: 'Calculus I' }
+//> ]
 ```
 
-------
+#### 8. Negation as Failure (`!`)
 
-### logic.solveAsync (Asynchronous)
+The `!` operator succeeds only if its goal *fails* to find any solutions. This is perfect for finding entities defined by an *absence* of a relationship.
 
-Use logic.solveAsync when you need to perform I/O or handle Promise-returning functions transparently. All queries will return AsyncIterators.
+Let's find "leaf" courses—courses that are *not* prerequisites for any other course.
 
 ```javascript
-let { get_data, add_async } = logic.solveAsync`
-    function add_async(A, Result) {
-        var Val;
-        // Get the async value
-        Val = Logic.js(Promise.resolve(A));
-        // Use it in a normal calculation
-        Result = Logic.js(Val + 10);
+let { course, prereq, is_prereq_for_another, 
+      is_leaf_course } = logic.solve`
+    
+    // --- Facts ---
+    function course(id='6.001', title='SICP', hours=15) {}
+    function course(id='8.01', title='Physics I', hours=12) {}
+    function course(id='18.01', title='Calculus I', hours=10) {}
+    function course(id='8.02', title='Physics II', hours=12) {}
+
+    function prereq(course='8.02', requires='8.01') {}
+    function prereq(course='8.01', requires='18.01') {}
+    // Note: '6.001' and '8.02' are not required by any course
+
+    // --- Rules ---
+    // Helper rule: succeeds if `CourseID` is a prereq for *any* other course.
+    function is_prereq_for_another(CourseID) {
+        prereq(_, CourseID); // `_` is an anonymous "don't care" variable
+    }
+
+    // Main rule: A course is a "leaf course" if...
+    function is_leaf_course(CourseID) {
+        course(CourseID, _, _);           // 1. It is a course, AND
+        !is_prereq_for_another(CourseID); // 2. It is *not* a prereq for another.
     }
 `;
 
-// Create symbolic variables
-let { R } = logic.vars();
-
-console.log(await logic.all(add_async(5, R)));
-//> { R: 15 }
+// Query: Find all leaf courses.
+console.log([...is_leaf_course(ID)]);
+//> [ { ID: '6.001' }, { ID: '8.02' } ]
 ```
+
+#### 9. Lexical Scoping and Shadowing
+
+You can define rules inside other rules. This creates a "local" version of a rule that *shadows* the global one for that specific query. When the shadowed rule is called, the engine tries the local rule first, then falls back to the global rule on backtracking.
+
+```javascript
+let { student, get_title, get_student_title } = logic.solve`
+    // --- Facts ---
+    function student(id=101, name='Alyssa P. Hacker') {}
+    function student(id=102, name='Ben Bitdiddle') {}
+
+    // --- Global Rule (The Default) ---
+    // By default, every student's title is 'Student'.
+    function get_title(StudentID, Title) {
+        student(StudentID, _);
+        Title = 'Student';
+    }
+    
+    // --- Wrapper Rule (The "Shadow") ---
+    // This rule defines a *local* version of get_title.
+    function get_student_title(QueryID, Status) {
+    
+        // 1. This local rule shadows the global 'get_title'.
+        function get_title(id=101, title='Lisp Wizard') {}
+        
+        // 2. This call is made *inside* the wrapper, so
+        //    it sees the local rule first.
+        get_title(QueryID, Status);
+    }
+`;
+
+// Query 1: Get title for Alyssa (ID 101)
+// Finds local rule first, then global rule on backtracking.
+console.log([...get_student_title(101, S)]);
+//> [ { S: 'Lisp Wizard' }, { S: 'Student' } ]
+
+// Query 2: Get title for Ben (ID 102)
+// Fails local rule, but finds global rule on backtracking.
+console.log([...get_student_title(102, S)]);
+//> [ { S: 'Student' } ]
+```
+
+#### 10. Dynamic Subgoals (Higher-Order Logic)
+
+You can pass a predicate as an argument to another rule. The engine will treat the variable as a goal to be called. This allows you to create powerful, generic, higher-order rules like `map`.
+
+```javascript
+let { double, map } = logic.solve`
+    // --- "Operation" Rule ---
+    function double(In, Out) {
+        Out = Logic.js(In * 2);
+    }
+    
+    // --- Dynamic Rule (map) ---
+    // Base Case: Mapping an empty list is an empty list.
+    function map(list=[], operation=_, result=[]) {}
+    
+    // Recursive Step: Apply 'Operation' to the Head
+    // and recursively 'map' the Rest.
+    function map([H_In, ...T_In], Operation, [H_Out, ...T_Out]) {
+        // This is the dynamic subgoal.
+        Operation(H_In, H_Out); // Call the predicate in 'Operation'
+        map(T_In, Operation, T_Out);
+    }
+`;
+
+// Query: Apply the 'double' operation to the list.
+let { R } = logic.vars();
+console.log([...map([10, 20, 30], double, R)]);
+//> [ { R: [ 20, 40, 60 ] } ]
+```
+
+#### 11. `Logic.is_ground`
+
+This built-in goal succeeds if a term is "ground" (i.e., it contains no unbound logic variables).
+
+```javascript
+let { validate } = logic.solve`
+    // This rule only succeeds if 'Term' is fully bound.
+    function validate(Term) {
+        Logic.is_ground(Term);
+    }
+`;
+
+let { X } = logic.vars();
+
+// Query 1: Term is ground (a concrete string).
+console.log([...validate('6.001')]);
+//> [ {} ] (Succeeds)
+
+// Query 2: Term is an unbound variable.
+console.log([...validate(X)]);
+//> [] (Fails)
+```
+
+#### 12. `logic.solveAsync` (Asynchronous)
+
+Use `logic.solveAsync` when you need to perform I/O or handle `Promise`-returning functions. The engine will transparently `await` any `Promise` returned from `Logic.js()`.
+
+```javascript
+// A mock async function in our JavaScript code
+async function mock_api_call(name) {
+    return new Promise(resolve => {
+        setTimeout(() => {
+            if (name === 'Alyssa P. Hacker') {
+                resolve({ id: 101, gpa: 3.9 });
+            } else {
+                resolve({ id: 0, gpa: 0.0 });
+            }
+        }, 50);
+    });
+}
+
+// Note: We use `logic.solveAsync` here
+let { fetch_student_info } = logic.solveAsync`
+    
+    function fetch_student_info(Name, Info) {
+        // The engine will 'await' the promise
+        // returned by 'mock_api_call(Name)'.
+        Info = Logic.js( mock_api_call(Name) );
+    }
+`;
+
+// Query: Fetch Alyssa's info.
+// We must use `await` or `for await...of` to get results.
+let { Info } = logic.vars();
+console.log(await logic.all( fetch_student_info('Alyssa P. Hacker', Info) ));
+//> [ { Info: { id: 101, gpa: 3.9 } } ]
+```
+
+-----
+
+### Prolog Syntax vs. JS Logic Syntax
+
+For those familiar with Prolog, here is a quick comparison of the syntax:
+
+| Concept | Prolog Syntax | JS Logic Syntax |
+| :--- | :--- | :--- |
+| **Rule** | `head :- body.` | `function head() { body; }` |
+| **Fact** | `fact(a, b).` | `function fact(a='a', b='b') {}` |
+| **Conjunction (AND)** | `goal1, goal2.` | `goal1; goal2;` |
+| **Disjunction (OR)** | `goal1 ; goal2.` | (multiple functions) |
+| **List Destructuring** | `[H\|T]` | `[H, ...T]` |
+| **Negation** | `\+ goal.` | `!goal;` |
+| **Arithmetic** | `X is Y + Z.` | `X = Logic.js(Y + Z);` |
+| **Comparison** | `X > Y.` | `X > Y;` |
+| **Unification** | `X = Y.` | `X = Y;` |
+| **Anonymous Var** | `_` | `_` (as a variable) |
+| **Find All** | `findall(T, G, L).` | `Logic.findall(T, G, L);` |
+
+-----
+
+## Caveats
+
+### A Note on Unification in Rule Heads
+
+Because this language is a direct superset of JavaScript, you must follow JavaScript's syntax rules for function parameters: all variable names in a parameter list must be unique.
+
+**The Problem: Invalid JavaScript Syntax**
+
+You cannot use the same variable name twice in a function signature. This means a pattern common in other logic languages is invalid JavaScript:
+
+```javascript
+// This is NOT valid JavaScript
+// It will throw a "SyntaxError: Argument name clash"
+function member(Item, [Item, ..._]) {
+    // ...
+}
+```
+
+
+**The Solution: Unify with Default Values**
+
+The most concise and idiomatic solution is to use JavaScript's default value syntax. This performs the unification directly in the rule's head.
+
+```javascript
+// This is the correct and recommended pattern
+function member(Item, [H=Item, ..._]) {
+    // The body is empty!
+}
+
+function member(Item, [_  , ...Rest]) {
+    member(Item, Rest);
+}
+```
+
+This works because:
+
+1.  The syntax `[H=Item, ..._]` is valid JavaScript. `H` is a new, unique variable.
+2.  The default value assignment (`H=Item`) is automatically compiled into a unification goal: `H = Item`.
