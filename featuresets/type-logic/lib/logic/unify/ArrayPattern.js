@@ -3,6 +3,7 @@ import { unifyTag, groundTag, reprTag, symbolsTag } from "@/lib/logic/tags";
 /**
  * Calculates the minimum required length for a pattern.
  * Spread variables have a min-length of 0.
+ * This is called on a TERM.
  */
 function getMinLength(unify, term, bindings) {
     if (term === null || term === undefined) return 0;
@@ -13,20 +14,29 @@ function getMinLength(unify, term, bindings) {
     if (Array.isArray(resolved)) return resolved.length;
 
     if (resolved instanceof ArrayPattern) {
-        // Recursively sum the min-lengths of the head and tail
-        return getMinLength(unify, resolved.head, bindings) +
-            getMinLength(unify, resolved.tail, bindings);
+        return resolved.parts.reduce((acc, part) => {
+            // part is a term, e.g. [1,2] or Symbol('X')
+            // getMinLength on Symbol('X') resolves to 0.
+            // getMinLength on [1,2] resolves to 2.
+            return acc + getMinLength(unify, part, bindings);
+        }, 0);
     }
     // It's a spread variable (Symbol) or something else; min-length is 0.
     return 0;
 }
 
 /**
- * Unifies a pattern (head, tail) against a concrete JS array.
+ * Unifies a pattern (represented by a parts array) against a concrete JS array.
+ * @param {Array} parts - The pattern's internal parts array.
  */
-function unifyAgainstArray(unify, head, tail, value, bindings, location) {
-    // Resolve the head to its concrete value
-    const p_head = unify.resolve(head, bindings).value;
+function unifyAgainstArray(unify, parts, value, bindings, location) {
+    // Base Case: No parts left to match.
+    if (parts.length === 0) {
+        return value.length === 0 ? bindings : null; // Succeed only if value is also empty.
+    }
+
+    const [part, ...restParts] = parts;
+    const p_head = unify.resolve(part, bindings).value; // 'part' is the head term
 
     // Case: Head is a fixed array, e.g., [1, ...X]
     if (Array.isArray(p_head)) {
@@ -38,26 +48,25 @@ function unifyAgainstArray(unify, head, tail, value, bindings, location) {
             if (bindings === null) return null;
         }
 
-        // Recursively unify the tail with the rest of the array
-        const restOfValue = value.slice(p_head.length);
-
-        // Base case for empty tail
-        if (!tail) {
-            return restOfValue.length === 0 ? bindings : null;
-        }
-        return unify(tail, restOfValue, bindings, location);
+        // Recursively unify the rest of the parts with the rest of the array
+        // We must re-wrap the restParts into a term for the next unify call.
+        const tailTerm = ArrayPattern.from(restParts);
+        return unify(tailTerm, value.slice(p_head.length), bindings, location);
     }
 
     // Case: Head is a spread variable, e.g., [...X, 1]
     if (typeof p_head === 'symbol') {
         // --- NON-GREEDY "FIND-FIRST-SPLIT" LOGIC ---
         // Find the minimum length the tail requires
-        const tailMinLen = getMinLength(unify, tail, bindings);
+        // We create a temporary tail term to measure it.
+        const tailTerm = ArrayPattern.from(restParts);
+        const tailMinLen = getMinLength(unify, tailTerm, bindings);
+
         if (value.length < tailMinLen) return null; // Not enough elements for the tail
 
         // We must find the *first* split point `i` in `value`
         // where `head` takes `value.slice(0, i)` and
-        // `tail` can unify with `value.slice(i)`.
+        // `tailTerm` can unify with `value.slice(i)`.
 
         // The head can take at most `value.length - tailMinLen` elements.
         const maxHeadSize = value.length - tailMinLen;
@@ -69,11 +78,7 @@ function unifyAgainstArray(unify, head, tail, value, bindings, location) {
 
             // Try to unify the tail first. This is the "lookahead".
             // We pass the *current* bindings.
-
-            // Do tail base case check
-            const tailBindings = !tail
-                ? (tailValue.length === 0 ? bindings : null)
-                : unify(tail, tailValue, bindings, location);
+            const tailBindings = unify(tailTerm, tailValue, bindings, location);
 
             // Did the tail match?
             if (tailBindings !== null) {
@@ -95,59 +100,62 @@ function unifyAgainstArray(unify, head, tail, value, bindings, location) {
         return null;
     }
 
+    // Case: Head is another ArrayPattern (e.g., from a bound var `[...A] = [...B]`)
+    if (p_head instanceof ArrayPattern) {
+        // Flatten it and retry
+        const newParts = [...p_head.parts, ...restParts];
+        return unifyAgainstArray(unify, newParts, value, bindings, location);
+    }
+
     // Head is not a fixed array or a spread variable. This is an invalid pattern.
     return null;
 }
 
 class ArrayPattern {
-    static from([head, ...tailParts]) {
-        switch (tailParts.length) {
-            case 0:
-                return typeof head === 'symbol' ? new this(head) : head
-            case 1:
-                const tail = tailParts[0]
-                if (Array.isArray(tail) && tail.length === 0) {
-                    return typeof head === 'symbol' ? new this(head) : head
-                }
-                if (typeof tail !== 'symbol') {
-                    return new this(head, tail)
-                }
-            // fallthrough if tail is symbol.
+    /**
+     * Factory method.
+     * Takes an array of terms (parts) and decides whether to return
+     * a simple value (like a concrete array) or a new ArrayPattern instance.
+     * @param {Array<any>} parts - An array of terms, e.g., [[1,2], Symbol('X')]
+     */
+    static from(parts) {
+        if (!parts || parts.length === 0) return [];
+
+        if (parts.length === 1) {
+            return parts[0];
         }
-        return new this(head, this.from(tailParts))
+        // Otherwise, we need a pattern instance to handle the logic.
+        return new this(...parts);
     }
 
+    /**
+     * Public factory.
+     * e.g., ArrayPattern.of([1,2], X, [3])
+     */
     static of(...parts) {
         return this.from(parts)
     }
 
-    constructor(head, tail) {
-        this.head = head
-        this.tail = tail
-    }
-
-    *parts() {
-        yield this.head
-        const tail = this.tail
-        if (tail instanceof this.constructor) {
-            yield* tail.parts()
-        } else if (tail?.length) {
-            yield tail
-        }
+    /**
+     * @param {Array<any>} parts - An array of terms.
+     */
+    constructor(...parts) {
+        this.parts = parts || [];
     }
 
     *[symbolsTag](symbols) {
-        for (const part of this.parts()) {
+        // Use this.parts directly, not the generator
+        for (const part of this.parts) {
             if (typeof part === 'symbol') {
-                yield part
+                yield part;
             } else {
-                yield* symbols(part)
+                yield* symbols(part); // 'part' is a fixed array or nested pattern
             }
         }
     }
 
     [reprTag](repr) {
-        return `[${Array.from(this.parts(), part => {
+        return `[${Array.from(this.parts, part => {
             if (typeof part === 'symbol') {
                 return `...${repr(part)}`
             }
@@ -157,25 +165,38 @@ class ArrayPattern {
 
     [unifyTag](unify, value, bindings, location) {
         // Pattern-vs-Pattern Unification
-        // Symmetrically unify the parts.
         if (value instanceof ArrayPattern) {
+            // Attempt to ground the 'value' pattern using the current bindings.
+            const groundedValue = unify.ground(value, bindings);
+
+            // If grounding resulted in a concrete array (not a pattern),
+            // unify against that array instead of using the symmetric logic.
+            if (Array.isArray(groundedValue)) {
+                return unifyAgainstArray(unify, this.parts, groundedValue, bindings, location);
+            }
+
+            // If grounding failed (result is still an ArrayPattern),
+            // fall back to the symmetric (syntactic) unification logic.
+            // This is correct for unbound pattern vs. unbound pattern.
+            const thisHead = this.parts[0];
+            const thisTail = ArrayPattern.from(this.parts.slice(1));
+
+            const valueHead = value.parts[0];
+            const valueTail = ArrayPattern.from(value.parts.slice(1));
+
             // Unify heads
-            bindings = unify(this.head, value.head, bindings, location);
+            bindings = unify(thisHead, valueHead, bindings, location);
             if (bindings === null) return null;
 
-            const thisTailEmpty = !this.tail;
-            const valueTailEmpty = !value.tail;
-            if (thisTailEmpty && valueTailEmpty) {
-                return bindings;
-            }
             // Unify tails
-            return unify(this.tail, value.tail, bindings, location);
+            return unify(thisTail, valueTail, bindings, location);
         }
 
         // Pattern-vs-Value Unification
         // Value must be a concrete array to proceed.
         if (Array.isArray(value)) {
-            return unifyAgainstArray(unify, this.head, this.tail, value, bindings, location);
+            // Call the recursive helper with our parts list.
+            return unifyAgainstArray(unify, this.parts, value, bindings, location);
         }
 
         // Value is not a pattern, not an array, and not a variable. Fail.
@@ -196,18 +217,20 @@ class ArrayPattern {
             acc = undefined;
         }
 
+        // This recursive helper is designed to work with a flat list of parts
         const handleGroundedPart = (groundedPart) => {
             if (typeof groundedPart === 'symbol') {
                 // It's an UNBOUND spread. This is our "gap".
                 pushAcc()
                 parts.push(groundedPart)
             } else if (Array.isArray(groundedPart)) {
-                // It's a BOUND spread. If not an Array or ArrayPattern, then error.
+                // It's a BOUND spread.
                 if (!acc) { acc = [] }
                 acc.push(...groundedPart)
             } else if (groundedPart instanceof ArrayPattern) {
-                for (const p of groundedPart.parts()) {
-                    handleGroundedPart(p)
+                // It's a nested, partially bound pattern. Recurse.
+                for (const p of groundedPart.parts) {
+                    handleGroundedPart(ground(p, bindings)); // Must ground sub-parts
                 }
             } else {
                 return false
@@ -215,19 +238,12 @@ class ArrayPattern {
             return true
         }
 
-        for (let part of this.parts()) {
+        for (let part of this.parts) {
             if (!handleGroundedPart(ground(part, bindings))) {
                 throw new Error(`Cannot ground ArrayPattern: spread variable '${part.description}' was bound to a non-array value.`);
             }
         }
         pushAcc()
-
-        switch (parts.length) {
-            case 0:
-                return []
-            case 1:
-                return parts[0]
-        }
 
         return ArrayPattern.from(parts)
     }
