@@ -17,7 +17,15 @@ export default async (base, subpaths, sharedAttributes={}) => {
             attributes.type = 'javascript'
         }
 
-        let name = subpath.replace(/(\.[^.]+)$/, '') // trim final suffix
+        let name
+        if (subpath.endsWith('.md')) {
+            attributes.type = 'markdown'
+            name = subpath
+        }
+
+        if (!name) {
+            name = subpath.replace(/(\.[^.]+)$/, '') // trim final suffix
+        }
 
         // trim additional suffix
         if (name.endsWith('.dom-renkon')) {
