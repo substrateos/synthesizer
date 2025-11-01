@@ -54,35 +54,18 @@ const nodeTypes = {
         if (node.name === '_') return `Symbol('_')`; // Anonymous variable
         return `vars.${node.name}`; // Logic variable
     },
-
-    Literal: (node) => {
-        return JSON.stringify(node.value); // Primitives (string, number, boolean, null)
-    },
-
-    ArrayExpression: (node) => {
-        // e.g., A = [H, ...T] or A = [1, 2]
-        return _generatePattern(false, node.elements);
-    },
-
-    ArrayPattern: (node) => {
-        // e.g., function([H, ...T]) {}
-        return _generatePattern(false, node.elements);
-    },
-
-    ObjectExpression: (node) => {
-        // e.g., A = {a: 1, ...Rest}
-        return _generatePattern(true, node.properties);
-    },
-
-    ObjectPattern: (node) => {
-        // e.g., function({a: A, ...Rest}) {}
-        return _generatePattern(true, node.properties);
-    },
-
-    AssignmentPattern: (node) => {
-        // e.g., function(X=1) {}. We only care about the variable X here.
-        return reference(node.left);
-    }
+    // Primitives (string, number, boolean, null)
+    Literal: (node) => JSON.stringify(node.value),
+    // e.g., A = [H, ...T] or A = [1, 2]
+    ArrayExpression: (node) => _generatePattern(false, node.elements),
+    // e.g., function([H, ...T]) {}
+    ArrayPattern: (node) => _generatePattern(false, node.elements),
+    // e.g., A = {a: 1, ...Rest}
+    ObjectExpression: (node) => _generatePattern(true, node.properties),
+    // e.g., function({a: A, ...Rest}) {}
+    ObjectPattern: (node) => _generatePattern(true, node.properties),
+    // e.g., function(X=1) {}. We only care about the variable X here.
+    AssignmentPattern: (node) => reference(node.left),
 };
 
 // The main export function
