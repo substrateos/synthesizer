@@ -12,6 +12,7 @@ export default async function (workspace) {
     const iframe = document.createElement('iframe')
     iframe.src = "./featuresets/vscode/lib/vscode/vscode.html"
     iframe.style = 'border: 0; position: absolute; inset: 0; width: 100%; height: 100%'
+    iframe.allow = "cross-origin-isolated";
 
     trapInit(iframe, (iframe) => {
         // An alternative to the attach/dispose protocol here is connectCallback and

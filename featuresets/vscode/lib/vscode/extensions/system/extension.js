@@ -166,17 +166,20 @@ async function handleCommand({ vscode, bridgeClient }, commandId, ...args) {
  */
 class StatCache {
   #stat = new Map();
-  #vscode;
+  #uriForPath;
+  #FileType;
+  #FileChangeType;
 
-  constructor(vscode) {
-    this.#vscode = vscode;
-    this.#stat.set('/', { type: this.#vscode.FileType.Directory, ctime: Date.now(), mtime: Date.now(), size: 0 });
+  constructor(uriForPath, {FileType, FileChangeType}) {
+    this.#FileType = FileType
+    this.#FileChangeType = FileChangeType
+    this.#uriForPath = uriForPath;
+    this.#stat.set('/', { type: this.#FileType.Directory, ctime: Date.now(), mtime: Date.now(), size: 0 });
   }
 
   stat(path) {
-    const entry = this.#stat.get(path);
-    if (entry) return entry;
-    throw this.#vscode.FileSystemError.FileNotFound(path);
+    path = path || '/'
+    return this.#stat.get(path);
   }
 
   applyState(newState) {
@@ -187,11 +190,11 @@ class StatCache {
     oldPaths.delete('/');
 
     for (const [path, metadata] of newState.entries()) {
-      const uri = this.#vscode.Uri.from({ scheme: Provider.scheme, path: path });
+      const uri = this.#uriForPath(path);
       const oldEntry = this.#stat.get(path);
 
       const newEntry = {
-        type: metadata.type === 'directory' ? this.#vscode.FileType.Directory : this.#vscode.FileType.File,
+        type: metadata.type === 'directory' ? this.#FileType.Directory : this.#FileType.File,
         ctime: metadata.ctime,
         mtime: metadata.mtime,
         size: metadata.size,
@@ -201,20 +204,20 @@ class StatCache {
 
       if (oldEntry) {
         if (oldEntry.mtime !== newEntry.mtime || oldEntry.size !== newEntry.size) {
-          notifications.push({ uri, type: this.#vscode.FileChangeType.Changed });
+          notifications.push({ uri, type: this.#FileChangeType.Changed });
         }
       } else {
-        notifications.push({ uri, type: this.#vscode.FileChangeType.Created });
+        notifications.push({ uri, type: this.#FileChangeType.Created });
       }
       oldPaths.delete(path);
     }
 
     for (const path of oldPaths) {
-      notifications.push({ uri: this.#vscode.Uri.from({ scheme: Provider.scheme, path: path }), type: this.#vscode.FileChangeType.Deleted });
+      notifications.push({ uri: this.#uriForPath(path), type: this.#FileChangeType.Deleted });
     }
 
     this.#stat = newStat;
-    notifications.push({ uri: this.#vscode.Uri.from({ scheme: Provider.scheme, path: '/' }), type: this.#vscode.FileChangeType.Changed });
+    notifications.push({ uri: this.#uriForPath('/'), type: this.#FileChangeType.Changed });
     return notifications;
   }
 
@@ -226,8 +229,8 @@ class StatCache {
       for (const path of deleted) {
         if (this.#stat.delete(path)) {
           notifications.push({
-            uri: this.#vscode.Uri.from({ scheme: Provider.scheme, path: path }),
-            type: this.#vscode.FileChangeType.Deleted
+            uri: this.#uriForPath(path),
+            type: this.#FileChangeType.Deleted
           });
         }
       }
@@ -235,20 +238,20 @@ class StatCache {
 
     if (set) {
       for (const [path, metadata] of set.entries()) {
-        const uri = this.#vscode.Uri.from({ scheme: Provider.scheme, path: path });
+        const uri = this.#uriForPath(path);
         const oldEntry = this.#stat.get(path);
 
         const newEntry = {
-          type: metadata.type === 'directory' ? this.#vscode.FileType.Directory : this.#vscode.FileType.File,
+          type: metadata.type === 'directory' ? this.#FileType.Directory : this.#FileType.File,
           ctime: metadata.ctime, mtime: metadata.mtime, size: metadata.size,
           unitType: metadata.unitType
         };
         this.#stat.set(path, newEntry);
 
         if (oldEntry) {
-          notifications.push({ uri, type: this.#vscode.FileChangeType.Changed });
+          notifications.push({ uri, type: this.#FileChangeType.Changed });
         } else {
-          notifications.push({ uri, type: this.#vscode.FileChangeType.Created });
+          notifications.push({ uri, type: this.#FileChangeType.Created });
         }
       }
     }
@@ -260,8 +263,8 @@ class StatCache {
     }
     for (const p of parents) {
       notifications.push({
-        uri: this.#vscode.Uri.from({ scheme: Provider.scheme, path: p }),
-        type: this.#vscode.FileChangeType.Changed
+        uri: this.#uriForPath(path),
+        type: this.#FileChangeType.Changed
       });
     }
 
@@ -291,6 +294,7 @@ function getParentPath(path) {
 class Provider /* implements vscode.FileSystemProvider */ {
   static scheme = 'synth';
   onDidChangeFile;
+  #authority;
   #vscode;
   #emitter;
   #watchers = new Map();
@@ -300,10 +304,11 @@ class Provider /* implements vscode.FileSystemProvider */ {
   constructor(vscode, bridgeClient) {
     if (!vscode) throw new Error('A vscode module instance must be provided.');
     if (!bridgeClient) throw new Error('A BridgeClient instance must be provided.');
+    this.#authority = undefined
     this.#vscode = vscode;
     this.#bridgeClient = bridgeClient;
     this.#emitter = new vscode.EventEmitter();
-    this.#cache = new StatCache(vscode);
+    this.#cache = new StatCache(path => this.#vscode.Uri.from({scheme: this.scheme, authority: this.#authority, path}), vscode);
     this.onDidChangeFile = this.#emitter.event;
   }
 
@@ -346,12 +351,15 @@ class Provider /* implements vscode.FileSystemProvider */ {
   }
 
   stat(uri) {
-    return this.#cache.stat(uri.path);
+    const entry = this.#cache.stat(uri.path);
+    if (entry) return entry;
+    throw this.#vscode.FileSystemError.FileNotFound(uri);
   }
 
   async readDirectory(uri) {
-    this.#cache.stat(uri.path); // Fail fast
-    const data = await this.#bridgeClient.request(id => ({ type: 'readDirectory', path: uri.path, requestId: id }));
+    this.stat(uri); // Fail fast
+    const path = uri.path || '/'
+    const data = await this.#bridgeClient.request(id => ({ type: 'readDirectory', path, requestId: id }));
     return data.entries.map(([name, type]) => {
       return [name, type === 'directory' ? this.#vscode.FileType.Directory : this.#vscode.FileType.File];
     });
@@ -362,7 +370,7 @@ class Provider /* implements vscode.FileSystemProvider */ {
   }
 
   async readFile(uri) {
-    this.#cache.stat(uri.path);
+    this.stat(uri);
     const data = await this.#bridgeClient.request(id => ({ type: 'readFile', path: uri.path, requestId: id }));
     return new TextEncoder().encode(data.content);
   }
@@ -386,7 +394,7 @@ class Provider /* implements vscode.FileSystemProvider */ {
   }
 
   async delete(uri, options) {
-    this.#cache.stat(uri.path);
+    this.stat(uri);
     await this.#bridgeClient.request(id => ({
       type: 'delete',
       requestId: id,
@@ -396,7 +404,7 @@ class Provider /* implements vscode.FileSystemProvider */ {
   }
 
   async rename(oldUri, newUri, options) {
-    this.#cache.stat(oldUri.path);
+    this.stat(oldUri);
     await this.#bridgeClient.request(id => ({
       type: 'rename',
       requestId: id,
@@ -409,7 +417,7 @@ class Provider /* implements vscode.FileSystemProvider */ {
   async provideTextSearchResults(query, options, progress, token) {
     const onProgress = (payload) => {
       progress.report({
-        uri: this.#vscode.Uri.from({ scheme: this.scheme, path: payload.uriPath }),
+        uri: this.#vscode.Uri.from({ scheme: this.scheme, authority: this.#authority, path: payload.uriPath }),
 
         ranges: payload.ranges.map(r => new this.#vscode.Range(
           r.sourceRange.start.line,
@@ -454,7 +462,7 @@ class Provider /* implements vscode.FileSystemProvider */ {
     for (const [path, stat] of this.#cache.statEntries()) {
       if (token.isCancellationRequested) break;
       if (stat.type === this.#vscode.FileType.File && path.toLowerCase().includes(searchPattern)) {
-        results.push(this.#vscode.Uri.from({ scheme: this.scheme, path: path }));
+        results.push(this.#vscode.Uri.from({ scheme: this.scheme, authority: this.#authority, path: path }));
       }
       if (options.maxResults && results.length >= options.maxResults) break;
     }

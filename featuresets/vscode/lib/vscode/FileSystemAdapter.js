@@ -1,3 +1,23 @@
+const VIRTUAL_FILES = new Map([
+    ['/jsconfig.json', {
+        content: `{
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "target": "es2024",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"]
+    },
+    "checkJs": true,
+  },
+  "include": ["**/*.js"],
+  "exclude": ["node_modules"]
+}`,
+        unitType: 'json'
+    }],
+]);
+
 /**
  * A helper to get the parent directory path from a full path.
  * e.g., "/foo/bar.txt" -> "/foo"
@@ -5,167 +25,111 @@
  * e.g., "/foo" -> "/"
  */
 function getParentPath(path) {
-    // Trim trailing slash if it's not the root
     const cleanPath = (path.endsWith('/') && path.length > 1) ? path.substring(0, path.length - 1) : path;
     const lastSlash = cleanPath.lastIndexOf('/');
     if (lastSlash <= 0) return '/'; // Root's parent is root
     return cleanPath.substring(0, lastSlash);
 }
 
-/**
- * Builds the complete hierarchical state (all files and inferred directories)
- * from the synth store.
- * (Used for `doGetState` and calculating delete-event diffs).
- * @returns {Map<string, object>} A Map of {path -> statObject}
- */
-function buildFullHierarchicalState(synth) {
-    const state = new Map();
-    const now = Date.now();
-    state.set('/', { type: 'directory', ctime: now, mtime: now, size: 0 });
+class VirtualFileProvider {
+    #state = new Map(); // Map<path, stat>
+    #content = new Map(); // Map<path, content>
 
-    for (const { name, unit } of synth.query()) {
-        const path = `/${name}`;
-        const isDirectoryMarker = name.endsWith('/');
+    constructor(files) {
+        const now = Date.now();
+        this.#state.set('/', { type: 'directory', ctime: now, mtime: now, size: 0 });
 
-        // Add all parent directories for this path
-        let parent = getParentPath(path);
-        while (parent !== '/') {
-            if (!state.has(parent)) {
-                state.set(parent, { type: 'directory', ctime: now, mtime: now, size: 0 });
+        for (const [path, { content, unitType }] of files.entries()) {
+            let parent = getParentPath(path);
+            while (parent !== '/') {
+                if (!this.#state.has(parent)) {
+                    this.#state.set(parent, { type: 'directory', ctime: now, mtime: now, size: 0 });
+                }
+                parent = getParentPath(parent);
             }
-            parent = getParentPath(parent);
-        }
-
-        // Add the file or marker *itself*
-        if (isDirectoryMarker) {
-            const dirPath = path.substring(0, path.length - 1); // e.g., "/foo/bar/" -> "/foo/bar"
-            if (!state.has(dirPath)) {
-                state.set(dirPath, { type: 'directory', ctime: unit.ctime || now, mtime: unit.mtime || now, size: 0 });
-            }
-        } else {
-            // It's a file
-            state.set(path, {
+            this.#state.set(path, {
                 type: 'file',
-                mtime: unit.mtime || now,
-                size: unit.source ? unit.source.length : 0,
-                ctime: unit.ctime || now,
-                unitType: unit.type || 'plaintext'
+                ctime: now,
+                mtime: now,
+                size: content.length,
+                unitType: unitType || 'json'
             });
+            this.#content.set(path, content);
         }
     }
-    return state;
-}
 
-/**
- * --- Fast path for create/update ---
- * Calculates a diff *only* for additive changes.
- * This is "dumb" and doesn't add parent directories, as
- * the client's `applyWrite` handles parent notifications.
- */
-function translateSetEvent(set) {
-    const metadataSet = new Map();
-    const now = Date.now();
+    has(path) { return this.#state.has(path); }
+    stat(path) { return this.#state.get(path); }
+    readFile(path) { return this.#content.get(path); }
+    getState() { return new Map(this.#state); }
 
-    for (const name in set) {
-        const unit = set[name];
-        const path = `/${name}`;
-        const isDirectoryMarker = name.endsWith('/');
+    readDirectory(path) {
+        const entries = new Map();
+        const prefix = path === '/' ? '/' : `${path}/`;
 
-        // Add the file or directory marker itself
-        if (isDirectoryMarker) {
-            const dirPath = path.substring(0, path.length - 1);
-            metadataSet.set(dirPath, { type: 'directory', ctime: unit.ctime || now, mtime: unit.mtime || now, size: 0 });
-        } else {
-            metadataSet.set(path, {
-                type: 'file',
-                mtime: unit.mtime || now,
-                size: unit.source ? unit.source.length : 0,
-                ctime: unit.ctime || now,
-                unitType: unit.type || 'plaintext'
-            });
+        for (const fullPath of this.#state.keys()) {
+            if (fullPath === '/' || !fullPath.startsWith(prefix)) {
+                continue;
+            }
+
+            const relativePath = fullPath.substring(prefix.length);
+            const firstPart = relativePath.split('/')[0];
+
+            if (firstPart && !entries.has(firstPart)) {
+                const entryPath = path === '/' ? `/${firstPart}` : `${path}/${firstPart}`;
+                const stat = this.#state.get(entryPath);
+                if (stat) {
+                    entries.set(firstPart, stat.type);
+                }
+            }
         }
+        return Array.from(entries.entries());
     }
-    return { type: 'write', data: { set: metadataSet, deleted: [] } };
+
+    writeFile(path) { throw new Error(`Cannot modify read-only file: ${path}`); }
+    createDirectory(path) { throw new Error(`Cannot modify read-only directory: ${path}`); }
+    delete(path) { throw new Error(`Cannot delete read-only file/directory: ${path}`); }
+    rename(oldPath) { throw new Error(`Cannot rename read-only file/directory: ${oldPath}`); }
 }
 
-/**
- * --- Correct path for deletes ---
- * Calculates a diff by comparing the event to the *new* full state.
- */
-function translateDeleteEvent(event, synth) {
-    // 1. Get the complete, correct state *after* the change.
-    const newState = buildFullHierarchicalState(synth);
 
-    const { set, deleted, previous } = event.detail;
-    const metadataSet = new Map();
-    const deletedPaths = [];
+const SynthProvider = {
+    /**
+     * Builds the complete hierarchical state from the synth store.
+     */
+    buildFullHierarchicalState(synth) {
+        const state = new Map();
+        const now = Date.now();
+        state.set('/', { type: 'directory', ctime: now, mtime: now, size: 0 });
 
-    // 2. Handle Deletions
-    if (deleted) {
-        for (const name of deleted) {
+        for (const { name, unit } of synth.query()) {
             const path = `/${name}`;
             const isDirectoryMarker = name.endsWith('/');
-            const dirPath = isDirectoryMarker ? path.substring(0, path.length - 1) : path;
+
+            let parent = getParentPath(path);
+            while (parent !== '/') {
+                if (!state.has(parent)) {
+                    state.set(parent, { type: 'directory', ctime: now, mtime: now, size: 0 });
+                }
+                parent = getParentPath(parent);
+            }
 
             if (isDirectoryMarker) {
-                if (!newState.has(dirPath)) {
-                    deletedPaths.push(dirPath);
+                const dirPath = path.substring(0, path.length - 1); // e.g., "/foo/bar/" -> "/foo/bar"
+                if (!state.has(dirPath)) {
+                    state.set(dirPath, { type: 'directory', ctime: unit.ctime || now, mtime: unit.mtime || now, size: 0 });
                 }
             } else {
-                deletedPaths.push(path);
-            }
-
-            // Now, check its parents.
-            let parent = getParentPath(path);
-            while (parent !== '/') {
-                // If the parent *was* in the previous state (implied)
-                // but is *not* in the new state, it was pruned.
-                if (previous.has(parent) && !newState.has(parent)) {
-                    deletedPaths.push(parent);
-
-                }
-                parent = getParentPath(parent);
+                state.set(path, {
+                    type: 'file',
+                    mtime: unit.mtime || now,
+                    size: unit.source ? unit.source.length : 0,
+                    ctime: unit.ctime || now,
+                    unitType: unit.type || 'plaintext'
+                });
             }
         }
-    }
-
-    // 3. Handle Set (Creations/Updates that happened in the same write)
-    if (set) {
-        for (const name in set) {
-            const path = `/${name}`;
-            const isDirectoryMarker = name.endsWith('/');
-            const dirPath = isDirectoryMarker ? path.substring(0, path.length - 1) : path;
-            const targetPath = isDirectoryMarker ? dirPath : path;
-
-            if (newState.has(targetPath)) {
-                metadataSet.set(targetPath, newState.get(targetPath));
-            }
-
-            // Also add all parents that might have been created.
-            let parent = getParentPath(path);
-            while (parent !== '/') {
-                if (newState.has(parent) && !metadataSet.has(parent)) {
-                    metadataSet.set(parent, newState.get(parent));
-                }
-                parent = getParentPath(parent);
-            }
-        }
-    }
-
-    return { type: 'write', data: { set: metadataSet, deleted: deletedPaths } };
-}
-
-
-/**
-* This adapter translates between the FileSystemProvider's API (paths, content)
-* and the Synth emitter's API (units, names).
-*/
-export default {
-    /**
-     * Gets the full file state, including inferred directories.
-     */
-    doGetState(synth) {
-        return buildFullHierarchicalState(synth);
+        return state;
     },
 
     /**
@@ -206,12 +170,10 @@ export default {
     async doWriteFile(synth, path, content, typeHint, options) {
         const name = path.substring(1);
 
-        // 1. Respect options.overwrite
         if (!options.overwrite && synth.has(name)) {
             throw new Error('File already exists.');
         }
 
-        // 2. Proceed with write
         const units = {
             [name]: {
                 source: content,
@@ -244,7 +206,6 @@ export default {
         const markerName = name + '/';
         const prefix = name + '/';
 
-        // 1. Check for children
         const children = Array.from(synth.query({ filter: ({ name: n }) => n.startsWith(prefix) }));
         if (!options.recursive && children.length > 0) {
             throw new Error('Directory is not empty.');
@@ -253,12 +214,10 @@ export default {
             units[childName] = undefined;
         }
 
-        // 2. Check for directory marker
         if (synth.read(markerName)) {
             units[markerName] = undefined;
         }
 
-        // 3. Check for a file *at the same path*
         if (synth.read(name)) {
             units[name] = undefined;
         }
@@ -328,6 +287,186 @@ export default {
             await synth.write(units);
         }
     },
+};
+
+/**
+ * --- Fast path for create/update ---
+ * Calculates a diff *only* for additive changes.
+ */
+function translateSetEvent(set) {
+    const metadataSet = new Map();
+    const now = Date.now();
+
+    for (const name in set) {
+        const unit = set[name];
+        const path = `/${name}`;
+        const isDirectoryMarker = name.endsWith('/');
+
+        if (isDirectoryMarker) {
+            const dirPath = path.substring(0, path.length - 1);
+            metadataSet.set(dirPath, { type: 'directory', ctime: unit.ctime || now, mtime: unit.mtime || now, size: 0 });
+        } else {
+            metadataSet.set(path, {
+                type: 'file',
+                mtime: unit.mtime || now,
+                size: unit.source ? unit.source.length : 0,
+                ctime: unit.ctime || now,
+                unitType: unit.type || 'plaintext'
+            });
+        }
+    }
+    return { type: 'write', data: { set: metadataSet, deleted: [] } };
+}
+
+/**
+ * --- Correct path for deletes ---
+ * Calculates a diff by comparing the event to the *new* full state.
+ */
+function translateDeleteEvent(event, synth) {
+    const newState = SynthProvider.buildFullHierarchicalState(synth);
+
+    const { set, deleted, previous } = event.detail;
+    const metadataSet = new Map();
+    const deletedPaths = [];
+
+    if (deleted) {
+        for (const name of deleted) {
+            const path = `/${name}`;
+            const isDirectoryMarker = name.endsWith('/');
+            const dirPath = isDirectoryMarker ? path.substring(0, path.length - 1) : path;
+
+            if (isDirectoryMarker) {
+                if (!newState.has(dirPath)) {
+                    deletedPaths.push(dirPath);
+                }
+            } else {
+                deletedPaths.push(path);
+            }
+
+            let parent = getParentPath(path);
+            while (parent !== '/') {
+                if (previous.has(parent) && !newState.has(parent)) {
+                    deletedPaths.push(parent);
+
+                }
+                parent = getParentPath(parent);
+            }
+        }
+    }
+
+    if (set) {
+        for (const name in set) {
+            const path = `/${name}`;
+            const isDirectoryMarker = name.endsWith('/');
+            const dirPath = isDirectoryMarker ? path.substring(0, path.length - 1) : path;
+            const targetPath = isDirectoryMarker ? dirPath : path;
+
+            if (newState.has(targetPath)) {
+                metadataSet.set(targetPath, newState.get(targetPath));
+            }
+
+            let parent = getParentPath(path);
+            while (parent !== '/') {
+                if (newState.has(parent) && !metadataSet.has(parent)) {
+                    metadataSet.set(parent, newState.get(parent));
+                }
+                parent = getParentPath(parent);
+            }
+        }
+    }
+
+    return { type: 'write', data: { set: metadataSet, deleted: deletedPaths } };
+}
+
+
+const virtualProvider = new VirtualFileProvider(VIRTUAL_FILES);
+
+export default {
+    /**
+     * Gets the full file state, including inferred directories.
+     * Virtual files overwrite synth files.
+     */
+    doGetState(synth) {
+        const state = SynthProvider.buildFullHierarchicalState(synth);
+        const virtualState = virtualProvider.getState();
+        for (const [path, stat] of virtualState.entries()) {
+            state.set(path, stat);
+        }
+        // console.log("doGetState", state)
+        return state;
+    },
+
+    /**
+     * Efficiently lists direct children of a path.
+     * Merges virtual and synth entries.
+     */
+    doReadDirectory(synth, path) {
+        const entries = new Map(SynthProvider.doReadDirectory(synth, path));
+        const virtualEntries = virtualProvider.readDirectory(path);
+        for (const [name, type] of virtualEntries) {
+            entries.set(name, type);
+        }
+        const result = Array.from(entries.entries());
+        // console.log("doReadDirectory", path, result)
+        return result
+    },
+
+    /**
+     * Gets file content.
+     * Checks virtual provider first.
+     */
+    doReadFile(synth, path) {
+        // console.log("doReadFile", path)
+        const virtualContent = virtualProvider.readFile(path);
+        if (virtualContent !== undefined) {
+            return virtualContent;
+        }
+        return SynthProvider.doReadFile(synth, path);
+    },
+
+    /**
+     * Writes a file to the store.
+     * Checks virtual provider first (which will throw if read-only).
+     */
+    async doWriteFile(synth, path, content, typeHint, options) {
+        if (virtualProvider.has(path)) {
+            return virtualProvider.writeFile(path);
+        }
+        return SynthProvider.doWriteFile(synth, path, content, typeHint, options);
+    },
+
+    /**
+     * Creates a directory marker in the store.
+     * Checks virtual provider first.
+     */
+    async doCreateDirectory(synth, path) {
+        if (virtualProvider.has(path)) {
+            return virtualProvider.createDirectory(path);
+        }
+        return SynthProvider.doCreateDirectory(synth, path);
+    },
+
+    /**
+     * Performs a recursive or non-recursive delete.
+     * Checks virtual provider first.
+     */
+    async doDelete(synth, path, options) {
+        if (virtualProvider.has(path)) {
+            return virtualProvider.delete(path);
+        }
+        return SynthProvider.doDelete(synth, path, options);
+    },
+
+    /**
+     * Performs a file or directory rename.
+     * Checks virtual provider first.
+    */
+    async doRename(synth, oldPath, newPath, options) {
+        if (virtualProvider.has(oldPath) || virtualProvider.has(newPath)) {
+            return virtualProvider.rename(oldPath, newPath);
+        }
+        return SynthProvider.doRename(synth, oldPath, newPath, options);
+    },
 
     /**
      * Smart, Hybrid Event Translator
@@ -337,17 +476,12 @@ export default {
             return { type: 'restore' };
         }
 
-        const { deleted, set } = event.detail;
+        const { deleted } = event.detail;
 
         if (deleted && deleted.length > 0) {
-            // --- "Delete" Path (Slow, but 100% correct) ---
-            // A deletion occurred. We *must* build the full state
-            // to find pruned directories.
             return translateDeleteEvent(event, synth);
         } else {
-            // --- "Set" Path (Fast, additive-only) ---
-            // No deletions. This is just a create or update.
-            return translateSetEvent(set);
+            return translateSetEvent(event.detail.set);
         }
     },
 }
