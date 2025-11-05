@@ -2,13 +2,96 @@ import { ancestor, simple } from "@/lib/javascript/acorn-walk@8.3.4.js"
 
 // A set of common JS globals to ignore.
 const KNOWN_GLOBALS = new Set([
-    'self', 'window', 'document', 'console', 'module', 'exports', 'require',
-    'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval',
-    'JSON', 'Math', 'Object', 'Array', 'String', 'Number', 'Boolean', 'Date',
-    'RegExp', 'Error', 'Symbol', 'Map', 'Set', 'WeakMap', 'WeakSet', 'Promise',
-    'Proxy', 'Reflect', 'eval', 'isFinite', 'isNaN', 'parseFloat', 'parseInt',
-    'decodeURI', 'decodeURIComponent', 'encodeURI', 'encodeURIComponent',
-    'undefined',
+  "AbortController",
+  "arguments", // not quite a global, but fine treat it as one
+  "Array",
+  "ArrayBuffer",
+  "atob",
+  "AudioContext",
+  "Blob",
+  "Boolean",
+  "BigInt",
+  "btoa",
+  "cancelAnimationFrame",
+  "clearInterval",
+  "clearTimeout",
+  "console",
+  "crypto",
+  "CustomEvent",
+  "DataView",
+  "Date",
+  "decodeURI",
+  "decodeURIComponent",
+  "devicePixelRatio",
+  "document",
+  "encodeURI",
+  "encodeURIComponent",
+  "Error",
+  "escape",
+  "eval",
+  "EventSource",
+  "fetch",
+  "File",
+  "FileList",
+  "FileReader",
+  "Float32Array",
+  "Float64Array",
+  "Function",
+  "globalThis",
+  "Headers",
+  "Image",
+  "ImageData",
+  "Infinity",
+  "Int16Array",
+  "Int32Array",
+  "Int8Array",
+  "Intl",
+  "isFinite",
+  "isNaN",
+  "JSON",
+  "Map",
+  "Math",
+  "MessageChannel",
+  "NaN",
+  "Number",
+  "navigator",
+  "Object",
+  "parseFloat",
+  "parseInt",
+  "performance",
+  "Path2D",
+  "Promise",
+  "Proxy",
+  "RangeError",
+  "ReferenceError",
+  "Reflect",
+  "RegExp",
+  "requestAnimationFrame",
+  "Set",
+  "self",
+  "setInterval",
+  "setTimeout",
+  "String",
+  "structuredClone",
+  "Symbol",
+  "SyntaxError",
+  "TextDecoder",
+  "TextEncoder",
+  "this",
+  "TypeError",
+  "Uint16Array",
+  "Uint32Array",
+  "Uint8Array",
+  "Uint8ClampedArray",
+  "undefined",
+  "unescape",
+  "URIError",
+  "URL",
+  "WeakMap",
+  "WeakSet",
+  "WebSocket",
+  "Worker",
+  "window"
 ]);
 
 /**
@@ -60,7 +143,10 @@ export default function findFreeVariables({ast}) {
             if ((parent.type === 'MemberExpression' && parent.property === node && !parent.computed) ||
                 (parent.type === 'Property' && parent.key === node && !parent.computed) ||
                 (parent.type === 'VariableDeclarator' && parent.id === node) ||
-                (parent.type.includes('Function') && parent.id === node)) {
+                (parent.type.includes('Function') && parent.id === node) ||
+                ((parent.type === 'ClassDeclaration' || parent.type === 'ClassExpression') && parent.id === node) ||
+                (parent.type === 'UnaryExpression' && parent.operator === 'typeof' && parent.argument === node)
+            ) {
                 return;
             }
 
@@ -121,6 +207,13 @@ export default function findFreeVariables({ast}) {
                         }
                         // Also check for 'function' declarations
                         if (statement.type === 'FunctionDeclaration') {
+                            if (statement.id && statement.id.name === name) {
+                                isDeclared = true;
+                                break;
+                            }
+                        }
+                        // Also check for 'class' declarations
+                        if (statement.type === 'ClassDeclaration') {
                             if (statement.id && statement.id.name === name) {
                                 isDeclared = true;
                                 break;

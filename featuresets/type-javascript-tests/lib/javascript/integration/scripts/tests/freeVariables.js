@@ -32,4 +32,25 @@ try {
             freeVariables: [],
         }
     },
+    {
+        description: "class",
+        params: [`
+class A {};
+new A();
+`],
+        returns: {
+            freeVariables: [],
+        }
+    },
+    {
+        description: "typeof",
+        params: [`
+typeof foo === 'undefined';
+typeof bar === 'object';
+console.log(bar)
+`],
+        returns: {
+            freeVariables: ["bar"],
+        }
+    },
 ]

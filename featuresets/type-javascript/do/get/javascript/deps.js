@@ -12,7 +12,7 @@ export default async function (handlerInputs) {
     const { ast, hasModuleSyntax } = await workspace.getAttribute({ unit, name, attribute: 'ast' })
 
     if (!hasModuleSyntax) {
-        return findFreeVariables({ast})
+        return findFreeVariables({ast}).map((dep) => [dep, dep])
     }
 
     const imports = findImports({ast})
