@@ -1,4 +1,4 @@
-import workspace from "@workspace/globals/workspace"
+import workspace from "@/globals/workspace"
 
 /**
  * Pauses the current running plan.

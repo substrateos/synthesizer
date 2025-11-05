@@ -1,4 +1,4 @@
-import workspace from "@workspace/globals/workspace"
+import workspace from "@/globals/workspace"
 
 /**
  * Continues execution of the current plan.

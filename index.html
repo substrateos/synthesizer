@@ -41,68 +41,28 @@ if chat is enabled, here are some things to try:
 <script type="importmap">
     {
         "imports": {
-            "@workspace/": "./featuresets/synth/",
             "@Synth/": "./featuresets/Synth/",
             "@fetchUnits/": "./featuresets/fetchUnits/",
             "@do-test/": "./featuresets/do-test/",
             "@do-get/": "./featuresets/do-get/",
             "@do-dump/": "./featuresets/do-dump/",
-            "@type-dom-renkon/": "./featuresets/type-dom-renkon/",
             "@type-javascript/": "./featuresets/type-javascript/",
             "@type-javascript-tests/": "./featuresets/type-javascript-tests/",
             "@type-json/": "./featuresets/type-json/",
-            "@type-chat/": "./featuresets/type-chat/",
-            "@type-logic/": "./featuresets/type-logic/",
             "@type-example-json/": "./featuresets/type-example-json/",
             "@do-search/": "./featuresets/do-search/",
             "@do-sample/": "./featuresets/do-sample/",
             "@zygote/": "./featuresets/zygote/"
         },
         "scopes": {
-            "./featuresets/fetchUnits/": {
+             "./featuresets/fetchUnits/": {
                 "@/": "./featuresets/fetchUnits/"
             },
             "./featuresets/Synth/": {
                 "@/": "./featuresets/Synth/"
             },
-            "./featuresets/fetchUnits/": {
-                "@/": "./featuresets/fetchUnits/"
-            },
-            "./featuresets/do-get/": {
-                "@/": "./featuresets/do-get/"
-            },
-            "./featuresets/do-dump/": {
-                "@/": "./featuresets/do-dump/"
-            },
-            "./featuresets/type-dom-renkon/": {
-                "@/": "./featuresets/type-dom-renkon/"
-            },
-            "./featuresets/do-search/": {
-                "@/": "./featuresets/do-search/"
-            },
-            "./featuresets/type-chat/": {
-                "@/": "./featuresets/type-chat/"
-            },
-            "./featuresets/type-logic/": {
-                "@/": "./featuresets/type-logic/"
-            },
-            "./featuresets/do-sample/": {
-                "@/": "./featuresets/do-sample/"
-            },
             "./featuresets/type-javascript/": {
                 "@/": "./featuresets/type-javascript/"
-            },
-            "./featuresets/type-javascript-tests/": {
-                "@/": "./featuresets/type-javascript-tests/"
-            },
-            "./featuresets/type-example-json/": {
-                "@/": "./featuresets/type-example-json/"
-            },
-            "./featuresets/type-json/": {
-                "@/": "./featuresets/type-json/"
-            },
-            "./featuresets/do-test/": {
-                "@/": "./featuresets/do-test/"
             }
         }
     }
@@ -159,8 +119,8 @@ if chat is enabled, here are some things to try:
     }
 
     await workspace.write({
-        ...(await fetchUnitsFromManifestAt('@type-logic/manifest.js')).units,
-        ...(await fetchUnitsFromManifestAt('@type-dom-renkon/manifest.js')).units,
+        ...(await fetchUnitsFromManifestAt('./featuresets/type-logic/manifest.js')).units,
+        ...(await fetchUnitsFromManifestAt('./featuresets/type-dom-renkon/manifest.js')).units,
     })
 
     for (const name of listGlobals()) {
