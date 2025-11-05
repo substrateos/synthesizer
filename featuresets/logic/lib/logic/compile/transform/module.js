@@ -51,7 +51,7 @@ export default ({topLevelScope, imports, exports}) => {
         if (resolution && resolution.type === 'predicate') {
             const mangledName = resolution.definition.mangledName;
             const publicName = exportMeta.name;
-            const wrapperCode = `createConfiguredQuery({ ...baseConfig, async: true, resolver: ${mangledName}.bind(null, null), name: '${publicName}' })`;
+            const wrapperCode = `createConfiguredQuery({ ...baseConfig, async: true, compiler: logic.compile, resolver: ${mangledName}.bind(null, null), name: '${publicName}' })`;
 
             if (exportMeta.type === 'default') {
                 exportStatements.push(`export default ${wrapperCode};`);

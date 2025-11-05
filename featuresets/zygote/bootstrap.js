@@ -18,16 +18,17 @@ const synthUnitsFromManifestsAt = async (makeSynth, manifestURLs) => {
         let {units, main} = await fetchUnitsFromManifestAt(manifestURL)
         if (main) {
             const synth = makeSynth()
-            synth.debug = true
             await synth.write(units)
 
             // trim the suffix from main
-            main = main.replace(/\.[^.]+$/, '')
+            if (/^do\//.test(main)) {
+                main = main.replace(/\.[^.]+$/, '')
+            }
             const mainUnit = await synth.get(main)
             // todo should really return a proxy so we can keep editing the synth
             // todo should include docs
-            
-            synthUnits[main] = {evaluation: mainUnit, synth}
+
+            synthUnits[main] = {evaluation: mainUnit.default, synth}
         } else {
             Object.assign(synthUnits, units)
         }
@@ -72,21 +73,32 @@ const bootstrapSynth = await (async () => {
 })();
 
 export const Synth = (await bootstrapSynth.get('lib/synth/Synth.js')).default
-export const doGet = (await bootstrapSynth.get('do/get')).default
 export const fetchUnits = (await bootstrapSynth.get('lib/fetchUnits/fetchUnits.js')).default
+
+export const doGet = (await bootstrapSynth.get('do/get')).default
+
 export const doGetJavascript = (await bootstrapSynth.get('do/get/javascript')).default
 export const doGetDefault = (await bootstrapSynth.get('do/get/default')).default
+// export const doGetExampleJSONEvaluation = (await bootstrapSynth.get('do/get/example/json/evaluation')).default
 
 export const synthUnits = async () => {
-    const minUnits = {
+    let minUnits = {
         // we can upgrade this by loading the new version of this anonymously and then replacing this unit with that evaluation
         // but this is part of the bootstrapping sequence, so must be provided as a value directly for now.
         'do/get': {evaluation: doGet},
         'do/get/javascript': {evaluation: doGetJavascript, synth: bootstrapSynth},
         'do/get/default': {evaluation: doGetDefault, synth: bootstrapSynth},
-
-        ...(await fetchUnitsFromManifestAt('@@/type-example-json/manifest.js')).units,
     }
+
+    Object.assign(minUnits, {
+        ...await synthUnitsFromManifestsAt(() => {
+            const synth = new Synth()
+            synth.write(minUnits)
+            return synth
+        }, ['@@/type-example-json/manifest.js'])
+    })
+
+    // we need a synth with:
 
     return {
         ...minUnits,
@@ -96,6 +108,7 @@ export const synthUnits = async () => {
             return synth
         }, [
             '@@/type-json/manifest.js',
+            '@@/logic/manifest.js',
             '@@/do-test/manifest.js',
             '@@/do-dump/manifest.js',
             '@@/do-search/manifest.js',
