@@ -21,10 +21,10 @@ export function* symbols(term, visited = new Set(), symbolsRec) {
             yield *symbolsRec(element)
         }
     } else if (typeof term === 'object') {
-        if (symbolsTag in term) {
-            yield *term[symbolsTag](symbolsRec)
-        }
         if (term !== null) {
+            if (symbolsTag in term) {
+                yield *term[symbolsTag](symbolsRec)
+            }
             for (const value of Object.values(term)) {
                 yield *symbolsRec(value)
             }

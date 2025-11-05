@@ -19,7 +19,10 @@ switch (oppc) {
 case undefined: {
   // Evaluate the JS expression in a sandboxed IIFE.
   let shouldFail = undefined;
-  const Logic = {fail: (reason) => (shouldFail = {reason}) }; // TODO only lazily insert the Logic helper
+  const Logic = {
+    fail: (reason) => (shouldFail = {reason}),
+    isGround: (v) => unify.isGround(v),
+  }; // TODO only lazily insert the Logic helper
   value = (function(${iifeParamNames}){ return ${iifeBody} }).call(Logic, ${resolvedArgValues.join(', ')});
   if (shouldFail) {
     yieldValue = {type: 'fail', reason: shouldFail.reason}

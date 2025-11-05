@@ -7,6 +7,8 @@ export default {
         'lib/logic/logic.js',
         'lib/logic/tags.js',
 
+        'do/get/logic/evaluation.js',
+
         'lib/logic/acorn@8.15.0.js',
         'lib/logic/acorn-walk@8.3.4.js',
         'lib/logic/schedulers/BFS.js',

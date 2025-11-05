@@ -33,6 +33,11 @@ export default async (base, subpaths, sharedAttributes={}) => {
             name = name.replace(/\.dom-renkon$/, '')
         }
 
+        if (name.endsWith('.logic')) {
+            attributes.type = 'logic'
+            name = name.replace(/\.logic$/, '')
+        }
+
         const isExampleFor = name.match(/^(.+)\/examples\//)
         if (isExampleFor) {
             attributes.exampleFor = isExampleFor[1]
