@@ -1,4 +1,4 @@
-import { ground, symbols } from "@/lib/logic/unify";
+import { ground, symbols } from "@/lib/logic/unify.js";
 
 /**
  * A simplified version of resolveSolution that returns a simple object

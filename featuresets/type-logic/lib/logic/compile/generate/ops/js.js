@@ -1,5 +1,5 @@
-import value from '@/lib/logic/compile/generate/blocks/value';
-import ground from '@/lib/logic/compile/generate/blocks/ground';
+import value from "@/lib/logic/compile/generate/blocks/value.js";
+import ground from "@/lib/logic/compile/generate/blocks/ground.js";
 
 export default ({ target, rawString, logicVars }, clauseId, pc) => {
   // 1. Get the list of argument *values* to pass to the IIFE

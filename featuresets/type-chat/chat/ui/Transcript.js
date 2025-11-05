@@ -1,6 +1,6 @@
-import { html } from "@/lib/dom-renkon/htm@3.1.1/preact.js"
+import { html } from "@/lib/dom-renkon/preact@10.27.2/html.js"
 
-export default function ChatUI({ messages = [] }) {
+export default function Transcript({ messages = [] }) {
   const styles = {
     container: 'font-family: ui-sans-serif, system-ui, sans-serif; border: 1px solid #e2e8f0; border-radius: 0.5rem; padding: 1rem; max-width: 600px; margin: 2rem auto; display: flex; flex-direction: column; gap: 0.75rem;',
     message: 'padding: 0.5rem 0.875rem; border-radius: 1.25rem; max-width: 80%; line-height: 1.5; word-wrap: break-word;',

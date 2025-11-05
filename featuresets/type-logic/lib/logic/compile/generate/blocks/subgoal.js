@@ -1,5 +1,5 @@
-import value from '@/lib/logic/compile/generate/blocks/value';
-import ground from '@/lib/logic/compile/generate/blocks/ground';
+import value from "@/lib/logic/compile/generate/blocks/value.js";
+import ground from "@/lib/logic/compile/generate/blocks/ground.js";
 
 /**
  * Generates the complete 'switch(oppc){...}' block for a subgoal call.

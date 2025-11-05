@@ -1,4 +1,4 @@
-import value from '@/lib/logic/compile/generate/blocks/value';
+import value from "@/lib/logic/compile/generate/blocks/value.js";
 
 export default ({ term, negated }) => `
 if (${negated ? '!' : ''}unify.isGround(${value(term, 'bindings')})) {

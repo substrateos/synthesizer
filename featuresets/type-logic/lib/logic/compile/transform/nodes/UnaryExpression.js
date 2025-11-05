@@ -1,4 +1,4 @@
-import trimNode from '@/lib/logic/compile/transform/util/trim';
+import trimNode from "@/lib/logic/compile/transform/util/trim.js";
 
 /**
  * Analyzes a UnaryExpression to produce a 'negation' goal IR.

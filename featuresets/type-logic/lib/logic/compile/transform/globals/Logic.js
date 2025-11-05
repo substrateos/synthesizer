@@ -1,5 +1,5 @@
-import findall from '@/lib/logic/compile/transform/builtins/findall';
-import is_ground from '@/lib/logic/compile/transform/builtins/is_ground';
+import findall from "@/lib/logic/compile/transform/builtins/findall.js";
+import is_ground from "@/lib/logic/compile/transform/builtins/is_ground.js";
 
 /**
  * A dispatch table for methods on the `Logic` object.

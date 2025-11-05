@@ -28,7 +28,7 @@
 // json object with markdown in it
 // markdown string with json codefence
 
-import listGlobals from '@/globals/listGlobals'
+import listGlobals from "@/globals/listGlobals"
 
 const TextView = class { 
     constructor({id, source, content, type, pageSize = 4096, page = 1}) {

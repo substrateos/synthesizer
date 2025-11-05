@@ -1,4 +1,4 @@
-import visit from '@/lib/logic/compile/analyze/util/visit';
+import visit from "@/lib/logic/compile/analyze/util/visit.js";
 
 /**
  * Finds all variables declared in a clause's head or with `var` and maps them to their declaration AST node.

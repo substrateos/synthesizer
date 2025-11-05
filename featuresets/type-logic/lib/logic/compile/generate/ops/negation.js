@@ -1,4 +1,4 @@
-import value from '@/lib/logic/compile/generate/blocks/value';
+import value from "@/lib/logic/compile/generate/blocks/value.js";
 
 /**
  * Generates the JavaScript code for a negation goal (!myPred(...)).

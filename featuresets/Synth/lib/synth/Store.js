@@ -1,4 +1,4 @@
-import { ulid } from '@/lib/synth/ulid.js'
+import { ulid } from "@/lib/synth/ulid.js"
 
 export default class extends EventTarget {
     #units;

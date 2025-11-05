@@ -1,4 +1,4 @@
-import { unifyTag, groundTag, reprTag, symbolsTag } from "@/lib/logic/tags";
+import { unifyTag, groundTag, reprTag, symbolsTag } from "@/lib/logic/tags.js";
 
 /**
  * Returns true if value is a plain JS object.

@@ -16,7 +16,7 @@ export default {
         'chat/messages/init.js',
         'chat/messages/init/demos.js',
         'chat/messages/init/instructions.js',
-        'chat/ui/ChatUI.js',
+        'chat/ui/Transcript.js',
         'chat/ui.dom-renkon.js',
     ],
 }

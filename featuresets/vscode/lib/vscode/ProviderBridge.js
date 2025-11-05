@@ -1,6 +1,6 @@
-import FileSystemAdapter from '@/lib/vscode/FileSystemAdapter'
-import TextSearchAdapter from '@/lib/vscode/TextSearchAdapter'
-import CommandsAdapter from '@/lib/vscode/CommandsAdapter'
+import FileSystemAdapter from "@/lib/vscode/FileSystemAdapter.js"
+import TextSearchAdapter from "@/lib/vscode/TextSearchAdapter.js"
+import CommandsAdapter from "@/lib/vscode/CommandsAdapter.js"
 
 export default class ProviderBridge {
     #synth;

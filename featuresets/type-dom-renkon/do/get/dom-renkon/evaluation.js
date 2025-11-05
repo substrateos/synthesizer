@@ -1,11 +1,12 @@
-import parse from "@/lib/dom-renkon/parse"
-import findDefaultExports from "@/lib/dom-renkon/findDefaultExports"
-import { ProgramState } from "@/lib/dom-renkon/renkon-core@0.10.3/renkon-core"
-import { h, render, Component, html } from "@/lib/dom-renkon/htm@3.1.1/preact"
-import replaceSpans from "@/lib/dom-renkon/replaceSpans"
-import findImports from "@/lib/dom-renkon/findImports"
-import containerElement from "@/lib/dom-renkon/containerElement"
-import defineCustomElement from "@/lib/dom-renkon/defineCustomElement"
+import parse from "@/lib/dom-renkon/parse.js"
+import findDefaultExports from "@/lib/dom-renkon/findDefaultExports.js"
+import { ProgramState } from "@/lib/dom-renkon/renkon-core@0.10.3/renkon-core.js"
+import { h, render } from "@/lib/dom-renkon/preact@10.27.2/preact.js"
+import { html } from "@/lib/dom-renkon/preact@10.27.2/html.js"
+import replaceSpans from "@/lib/dom-renkon/replaceSpans.js"
+import findImports from "@/lib/dom-renkon/findImports.js"
+import containerElement from "@/lib/dom-renkon/containerElement.js"
+import defineCustomElement from "@/lib/dom-renkon/defineCustomElement.js"
 
 // note that we can't upgrade our custom element definition, so we need to lazily re-use it.
 const baseCustomElementName = 'renkon-mounter'
@@ -24,7 +25,7 @@ export default async function (handlerInputs) {
     const containerNode = document.createElement(customElementName)
     const ps = new ProgramState(0, {
         containerNode,
-        h, render, Component, html,
+        h, render, html,
     })
 
     let source = await workspace.getAttribute({unit, name, attribute: 'source'})

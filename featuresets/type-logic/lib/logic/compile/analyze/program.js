@@ -1,7 +1,7 @@
-import findDeclaredVariables from '@/lib/logic/compile/analyze/util/findDeclaredVariables';
-import findDeclaredFunctions from '@/lib/logic/compile/analyze/util/findDeclaredFunctions';
-import positionTracker from '@/lib/logic/compile/analyze/util/positionTracker';
-import mangleName from '@/lib/logic/compile/analyze/util/mangleName';
+import findDeclaredVariables from "@/lib/logic/compile/analyze/util/findDeclaredVariables.js";
+import findDeclaredFunctions from "@/lib/logic/compile/analyze/util/findDeclaredFunctions.js";
+import positionTracker from "@/lib/logic/compile/analyze/util/positionTracker.js";
+import mangleName from "@/lib/logic/compile/analyze/util/mangleName.js";
 
 function analyzeScope(astNode, parentScope, parentPath = [], extraClauseProps) {
     const declaredPredicateFuncs = findDeclaredFunctions(astNode);

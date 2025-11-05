@@ -1,4 +1,4 @@
-import transformPredicate from '@/lib/logic/compile/transform/predicate';
+import transformPredicate from "@/lib/logic/compile/transform/predicate.js";
 
 /**
  * Recursively walks the scope tree and returns a flat list of Predicate IRs

@@ -1,4 +1,4 @@
-import {baseFormatter} from "@/lib/example/json/jsondiffpatch@0.7.3/jsondiffpatch";
+import {baseFormatter} from "@/lib/example/json/jsondiffpatch@0.7.3/jsondiffpatch.js";
 
 export default class ConsoleFormatter extends baseFormatter {
     constructor() {

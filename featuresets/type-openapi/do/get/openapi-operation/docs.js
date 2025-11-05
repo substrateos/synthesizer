@@ -1,5 +1,5 @@
-import jsdocRender from "@/lib/openapi/jsdoc/render"
-import openapiOperationSignature from "@/lib/openapi/signature"
+import jsdocRender from "@/lib/openapi/jsdoc/render.js"
+import openapiOperationSignature from "@/lib/openapi/signature.js"
 
 const jsdocTypeFromAxType = (type) => type.isArray
     ? `Array<${jsdocTypeFromAxType({...type, isArray: false})}>`

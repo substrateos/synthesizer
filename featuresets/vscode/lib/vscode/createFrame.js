@@ -1,4 +1,4 @@
-import ProviderBridge from "@/lib/vscode/ProviderBridge";
+import ProviderBridge from "@/lib/vscode/ProviderBridge.js";
 
 function trapInit(iframe, cb) {
     if (iframe?.contentWindow?.document?.readyState === 'complete') {

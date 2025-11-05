@@ -1,4 +1,4 @@
-import transformBuiltins from '@/lib/logic/compile/transform/globals/Logic';
+import transformBuiltins from "@/lib/logic/compile/transform/globals/Logic.js";
 
 /**
  * The main dispatcher for global functions and built-in methods. It detects

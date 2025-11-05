@@ -1,6 +1,6 @@
-import parse from "@/lib/fetchUnits/javascript/parse"
-import astNodeToValue from "@/lib/fetchUnits/javascript/astNodeToValue"
-import findStaticExports from "@/lib/fetchUnits/javascript/findStaticExports"
+import parse from "@/lib/fetchUnits/javascript/parse.js"
+import astNodeToValue from "@/lib/fetchUnits/javascript/astNodeToValue.js"
+import findStaticExports from "@/lib/fetchUnits/javascript/findStaticExports.js"
 
 export default function(code) {
     const {ast} = parse({source: code})

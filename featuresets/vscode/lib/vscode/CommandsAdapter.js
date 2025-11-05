@@ -1,4 +1,4 @@
-import newContext from '@/lib/vscode/commands/newContext';
+import newContext from "@/lib/vscode/commands/newContext.js";
 
 const commandRegistry = {
     'synth.newContext': newContext,

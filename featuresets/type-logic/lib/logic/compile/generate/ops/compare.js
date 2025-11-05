@@ -1,4 +1,4 @@
-import value from '@/lib/logic/compile/generate/blocks/value';
+import value from "@/lib/logic/compile/generate/blocks/value.js";
 
 export default ({ op, startLocation }) => `
 const location = ${JSON.stringify(startLocation)};

@@ -1,4 +1,4 @@
-import { ancestor, simple } from "@/lib/logic/acorn-walk@8.3.4"
+import { ancestor, simple } from "@/lib/logic/acorn-walk@8.3.4.js"
 
 // A set of common JS globals to ignore.
 const KNOWN_GLOBALS = new Set([

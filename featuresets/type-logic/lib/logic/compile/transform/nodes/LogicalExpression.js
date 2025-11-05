@@ -1,4 +1,4 @@
-import trimNode from '@/lib/logic/compile/transform/util/trim';
+import trimNode from "@/lib/logic/compile/transform/util/trim.js";
 
 /**
  * Analyzes a LogicalExpression to produce a 'compare' goal IR.

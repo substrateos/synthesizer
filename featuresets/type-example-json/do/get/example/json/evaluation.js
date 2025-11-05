@@ -36,8 +36,8 @@ export default async function (handlerInputs) {
     }
 
     const testSource = `
-import {jsondiffpatch} from "@/lib/example/json/jsondiffpatch@0.7.3/jsondiffpatch";
-import ConsoleFormatter from "@/lib/example/json/ConsoleFormatter";
+import {jsondiffpatch} from "@/lib/example/json/jsondiffpatch@0.7.3/jsondiffpatch.js";
+import ConsoleFormatter from "@/lib/example/json/ConsoleFormatter.js";
 
 export default async ({unit}) => {
     // testID=${name}

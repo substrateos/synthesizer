@@ -1,6 +1,6 @@
-import parse from "@/lib/javascript/parse"
-import findImports from "@/lib/javascript/findImports"
-import findExports from "@/lib/javascript/findExports"
+import parse from "@/lib/javascript/parse.js"
+import findImports from "@/lib/javascript/findImports.js"
+import findExports from "@/lib/javascript/findExports.js"
 
 export default function(code) {
     const {ast} = parse({source: code})

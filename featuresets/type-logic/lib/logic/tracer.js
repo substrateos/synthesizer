@@ -1,5 +1,5 @@
-import { nameTag, reprTag } from '@/lib/logic/tags';
-import repr from '@/lib/logic/repr';
+import { nameTag, reprTag } from "@/lib/logic/tags.js";
+import repr from "@/lib/logic/repr.js";
 
 /**
  * Converts a standardized trace event object into a human-readable, Prolog-style string.

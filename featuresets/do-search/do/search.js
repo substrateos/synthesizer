@@ -1,4 +1,4 @@
-import search from "@/lib/search/search"
+import search from "@/lib/search/search.js"
 
 export default async function (handlerInputs) {
     const {action, unit, name, workspace} = this

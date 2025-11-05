@@ -1,4 +1,4 @@
-import generateClause from '@/lib/logic/compile/generate/clause';
+import generateClause from "@/lib/logic/compile/generate/clause.js";
 
 /**
  * Generates the unified resolver for a predicate.

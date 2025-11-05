@@ -2,12 +2,12 @@ export const attributes = {
     do: {get: 'do/get/javascript'}
 }
 
-import prepareDynamicImports from '@/lib/javascript/prepareDynamicImports.js';
-import insertReturn from '@/lib/javascript/insertReturn.js';
-import getJavascriptAST from '@/do/get/javascript/ast.js'
-import getJavascriptDeps from '@/do/get/javascript/deps.js'
-import getJavascriptDepmap from '@/do/get/javascript/depmap.js'
-import getJavascriptDocs from '@/do/get/javascript/docs.js'
+import prepareDynamicImports from "@/lib/javascript/prepareDynamicImports.js"
+import insertReturn from "@/lib/javascript/insertReturn.js"
+import getJavascriptAST from "@/do/get/javascript/ast"
+import getJavascriptDeps from "@/do/get/javascript/deps"
+import getJavascriptDepmap from "@/do/get/javascript/depmap"
+import getJavascriptDocs from "@/do/get/javascript/docs"
 
 const origConsoleLog = console.log
 

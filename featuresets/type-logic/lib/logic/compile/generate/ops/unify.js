@@ -1,4 +1,4 @@
-import reference from '@/lib/logic/compile/generate/blocks/reference';
+import reference from "@/lib/logic/compile/generate/blocks/reference.js";
 
 export default ({ op, startLocation, isRightAlreadyResolved }) => {
     // If the RHS is already resolved by the analyzer (e.g., to a predicate name),

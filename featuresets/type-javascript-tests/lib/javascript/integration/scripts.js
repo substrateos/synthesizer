@@ -1,5 +1,5 @@
-import parse from "@/lib/javascript/parse"
-import findFreeVariables from "@/lib/javascript/findFreeVariables"
+import parse from "@/lib/javascript/parse.js"
+import findFreeVariables from "@/lib/javascript/findFreeVariables.js"
 
 export default function(code) {
     const {ast} = parse({source: code})

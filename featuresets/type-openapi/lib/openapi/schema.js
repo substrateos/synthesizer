@@ -1,4 +1,4 @@
-import jsonpointer from '@/lib/openapi/jsonpointer'
+import jsonpointer from "@/lib/openapi/jsonpointer.js"
 
 export const openapiGenerator = ({ schema, path, method, status, bodyInput, requestType, responseType, outputsFromResponse, errorsFromResponse }) => {
   const pathSchema = schema.paths[path]

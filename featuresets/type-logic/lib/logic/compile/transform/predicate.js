@@ -1,4 +1,4 @@
-import transformFunctionDeclaration from '@/lib/logic/compile/transform/nodes/FunctionDeclaration';
+import transformFunctionDeclaration from "@/lib/logic/compile/transform/nodes/FunctionDeclaration.js";
 
 /**
  * Creates the IR for the special fallback clause used for shadowing.

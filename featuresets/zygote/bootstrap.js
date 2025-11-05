@@ -1,4 +1,4 @@
-import bootstrapFetchUnits from '../fetchUnits/lib/fetchUnits/fetchUnits.js'
+import bootstrapFetchUnits from "../fetchUnits/lib/fetchUnits/fetchUnits.js"
 
 const fetchUnitsFromManifestAt = async (manifestURL, ...options) => {
     const {urls, base, main} = (await import(manifestURL)).default
@@ -70,9 +70,9 @@ const bootstrapSynth = await (async () => {
     return synth
 })();
 
-export const Synth = (await bootstrapSynth.get('lib/synth/Synth')).default
+export const Synth = (await bootstrapSynth.get('lib/synth/Synth.js')).default
 export const doGet = (await bootstrapSynth.get('do/get')).default
-export const fetchUnits = (await bootstrapSynth.get('lib/fetchUnits/fetchUnits')).default
+export const fetchUnits = (await bootstrapSynth.get('lib/fetchUnits/fetchUnits.js')).default
 export const doGetJavascript = (await bootstrapSynth.get('do/get/javascript')).default
 
 export const synthUnits = async () => {

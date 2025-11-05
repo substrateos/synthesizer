@@ -1,6 +1,6 @@
-import GoalSeries from "@/lib/logic/GoalSeries";
-import compileProgram from '@/lib/logic/compile/program';
-import resolveSolution from '@/lib/logic/solution';
+import GoalSeries from "@/lib/logic/GoalSeries.js";
+import compileProgram from "@/lib/logic/compile/program.js";
+import resolveSolution from "@/lib/logic/solution.js";
 
 // Exported tags for accessing internal metadata and the resolver.
 import {
@@ -10,7 +10,7 @@ import {
     nameTag,
     generatedSourceTag,
     resolverTags,
-} from '@/lib/logic/tags'
+} from "@/lib/logic/tags.js"
 
 /**
  * A recursive helper that creates a query function with a specific configuration.

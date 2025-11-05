@@ -1,5 +1,5 @@
-import ground from '@/lib/logic/compile/generate/blocks/ground';
-import value from '@/lib/logic/compile/generate/blocks/value';
+import ground from "@/lib/logic/compile/generate/blocks/ground.js";
+import value from "@/lib/logic/compile/generate/blocks/value.js";
 
 export default ({ target, call, template, resolverName, scopeDepth }, clauseId, pc) => {
     // 1. Determine the scope slice code based on the definition depth

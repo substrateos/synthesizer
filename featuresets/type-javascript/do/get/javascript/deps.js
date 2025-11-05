@@ -2,8 +2,8 @@ export const attributes = {
     do: {get: 'do/get/javascript'}
 }
 
-import findFreeVariables from '@/lib/javascript/findFreeVariables.js'
-import findImports from '@/lib/javascript/findImports.js'
+import findFreeVariables from "@/lib/javascript/findFreeVariables.js"
+import findImports from "@/lib/javascript/findImports.js"
 
 export default async function (handlerInputs) {
     const {action, unit, name, workspace} = this

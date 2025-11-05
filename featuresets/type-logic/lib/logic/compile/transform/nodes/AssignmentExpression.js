@@ -1,5 +1,5 @@
-import trimNode from '@/lib/logic/compile/transform/util/trim';
-import findFreeVariables from '@/lib/logic/compile/transform/util/findFreeVariables';
+import trimNode from "@/lib/logic/compile/transform/util/trim.js";
+import findFreeVariables from "@/lib/logic/compile/transform/util/findFreeVariables.js";
 
 /**
  * Transforms an AssignmentExpression AST node into a unification or JS execution IR goal.

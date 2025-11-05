@@ -1,4 +1,4 @@
-import transformAssignment from '@/lib/logic/compile/transform/nodes/AssignmentExpression';
+import transformAssignment from "@/lib/logic/compile/transform/nodes/AssignmentExpression.js";
 
 /**
  * Transforms a VariableDeclaration statement (e.g., `var A = 10, B;`)

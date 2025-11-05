@@ -1,8 +1,8 @@
-import trimNode from '@/lib/logic/compile/transform/util/trim';
-import transformAssignment from '@/lib/logic/compile/transform/nodes/AssignmentExpression';
-import transformExpressionStatement from '@/lib/logic/compile/transform/nodes/ExpressionStatement';
-import transformDebuggerStatement from '@/lib/logic/compile/transform/nodes/DebuggerStatement';
-import transformVariableDeclaration from '@/lib/logic/compile/transform/nodes/VariableDeclaration';
+import trimNode from "@/lib/logic/compile/transform/util/trim.js";
+import transformAssignment from "@/lib/logic/compile/transform/nodes/AssignmentExpression.js";
+import transformExpressionStatement from "@/lib/logic/compile/transform/nodes/ExpressionStatement.js";
+import transformDebuggerStatement from "@/lib/logic/compile/transform/nodes/DebuggerStatement.js";
+import transformVariableDeclaration from "@/lib/logic/compile/transform/nodes/VariableDeclaration.js";
 
 /**
  * Transforms default value assignments in parameters into unification goals.

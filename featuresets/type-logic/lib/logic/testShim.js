@@ -1,6 +1,6 @@
-import { predicatesTag, generatedSourceTag } from '@/lib/logic/tags';
+import { predicatesTag, generatedSourceTag } from "@/lib/logic/tags.js";
 
-import logic from "@/lib/logic/logic"
+import logic from "@/lib/logic/logic.js"
 
 const {
     all,

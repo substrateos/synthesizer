@@ -1,9 +1,42 @@
-import astNodeToValue from '@/lib/fetchUnits/javascript/astNodeToValue.js'
-import findStaticExports from '@/lib/fetchUnits/javascript/findStaticExports.js'
-import parse from '@/lib/fetchUnits/javascript/parse.js'
+import astNodeToValue from "@/lib/fetchUnits/javascript/astNodeToValue.js"
+import findStaticExports from "@/lib/fetchUnits/javascript/findStaticExports.js"
+import parse from "@/lib/fetchUnits/javascript/parse.js"
+
+/**
+ * Finds the target for a given baseName.
+ * @param {string} baseName - The base path (e.g., "foo/bar")
+ * @param {[string, string][]} subpathEntries - The array of [name, subpath] entries
+ * @returns {string | undefined} The matching target (e.g., "foo/bar") or undefined
+ * @throws {Error} If multiple matching subpaths are found.
+ */
+function findTarget(baseName, subpathEntries) {
+    const matches = subpathEntries.filter(([p]) => 
+        p === baseName || (
+            p.startsWith(baseName) &&
+            p.substring(baseName.length).startsWith('.')
+        )
+    );
+
+    if (matches.length > 1) {
+        throw new Error(
+            `Ambiguous target for "${baseName}": Found multiple files: ${matches.map(([k]) => k).join(', ')}`,
+        );
+    }
+
+    return matches[0]?.[1]; // Returns the single match or undefined if length is 0
+}
+
+export function nameForSubpath(subpath) {
+    if (/^(do|globals)\//.test(subpath)) {
+        return subpath.replace(/(\.[^\/]+)$/, '') // trim suffix
+    }
+    return subpath
+}
 
 export default async (base, subpaths, sharedAttributes={}) => {
-    return Object.fromEntries(await Promise.all(subpaths.map(async subpath => {
+    const subpathEntries = subpaths.map(subpath => [nameForSubpath(subpath), subpath])
+
+    return Object.fromEntries(await Promise.all(subpathEntries.map(async ([name, subpath]) => {
         const attributes = {}
         const url = new URL(subpath, base)
         const response = await fetch(url)
@@ -17,36 +50,36 @@ export default async (base, subpaths, sharedAttributes={}) => {
             attributes.type = 'javascript'
         }
 
-        let name
         if (subpath.endsWith('.md')) {
             attributes.type = 'markdown'
-            name = subpath
         }
 
-        if (!name) {
-            name = subpath.replace(/(\.[^.]+)$/, '') // trim final suffix
+        if (subpath.endsWith('.ohm')) {
+            attributes.type = 'ohm'
         }
 
-        // trim additional suffix
-        if (name.endsWith('.dom-renkon')) {
+        if (subpath.endsWith('.dom-renkon.js')) {
             attributes.type = 'dom-renkon'
-            name = name.replace(/\.dom-renkon$/, '')
         }
 
-        if (name.endsWith('.logic')) {
+        if (subpath.endsWith('.logic.js')) {
             attributes.type = 'logic'
-            name = name.replace(/\.logic$/, '')
         }
 
         const isExampleFor = name.match(/^(.+)\/examples\//)
         if (isExampleFor) {
-            attributes.exampleFor = isExampleFor[1]
+            let target = isExampleFor[1]
+            target = findTarget(target, subpathEntries) ?? target
+            attributes.exampleFor = target
             // we assume examples can also be used as tests
-            attributes.testFor = isExampleFor[1]
+            attributes.testFor = target
         }
+
         const isTestFor = name.match(/^(.+)\/tests\//)
         if (isTestFor) {
-            attributes.testFor = isTestFor[1]
+            let target = isTestFor[1]
+            target = findTarget(target, subpathEntries) ?? target
+            attributes.testFor = target
         }
 
         let source = await response.text()

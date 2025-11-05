@@ -1,8 +1,8 @@
-import CallExpression from '@/lib/logic/compile/transform/nodes/CallExpression';
-import AssignmentExpression from '@/lib/logic/compile/transform/nodes/AssignmentExpression';
-import UnaryExpression from '@/lib/logic/compile/transform/nodes/UnaryExpression';
-import BinaryExpression from '@/lib/logic/compile/transform/nodes/BinaryExpression';
-import LogicalExpression from '@/lib/logic/compile/transform/nodes/LogicalExpression';
+import CallExpression from "@/lib/logic/compile/transform/nodes/CallExpression.js";
+import AssignmentExpression from "@/lib/logic/compile/transform/nodes/AssignmentExpression.js";
+import UnaryExpression from "@/lib/logic/compile/transform/nodes/UnaryExpression.js";
+import BinaryExpression from "@/lib/logic/compile/transform/nodes/BinaryExpression.js";
+import LogicalExpression from "@/lib/logic/compile/transform/nodes/LogicalExpression.js";
 
 const goalTransformers = {
     CallExpression,

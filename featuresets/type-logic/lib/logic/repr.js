@@ -1,4 +1,4 @@
-import { reprTag } from '@/lib/logic/tags';
+import { reprTag } from "@/lib/logic/tags.js";
 
 export default function repr(arg, bindings=null, visited=new Set(), reprRec) {
     switch (typeof arg) {

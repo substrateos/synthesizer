@@ -1,4 +1,4 @@
-import jsonpointer from '@/lib/openapi/jsonpointer'
+import jsonpointer from "@/lib/openapi/jsonpointer.js"
 
 export default ({
     schema,

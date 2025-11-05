@@ -102,7 +102,7 @@ export function compile (pointer) {
 }
 
 // this is a hack because we don't yet support namespace type imports
-// like `import * as jsonpointer from 'lib/openapi/jsonpointer'
+// like `import * as jsonpointer from "lib/openapi/jsonpointer.js"
 export default {
   get,
   set,

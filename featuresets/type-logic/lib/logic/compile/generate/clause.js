@@ -1,4 +1,4 @@
-import ops from '@/lib/logic/compile/generate/ops';
+import ops from "@/lib/logic/compile/generate/ops.js";
 
 /**
  * Generates the JavaScript code for a single clause within a predicate's resolver.

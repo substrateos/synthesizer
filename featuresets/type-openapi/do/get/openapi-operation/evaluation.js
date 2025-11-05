@@ -1,4 +1,4 @@
-import jsonpointer from '@/lib/openapi/jsonpointer.js'
+import jsonpointer from "@/lib/openapi/jsonpointer.js"
 
 function renderPath(url, params) {
     if (!params) {

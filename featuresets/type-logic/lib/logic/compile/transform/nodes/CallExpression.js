@@ -1,5 +1,5 @@
-import trimNode from '@/lib/logic/compile/transform/util/trim';
-import transformGlobals from '@/lib/logic/compile/transform/globals'; // Handles Logic.* calls
+import trimNode from "@/lib/logic/compile/transform/util/trim.js";
+import transformGlobals from "@/lib/logic/compile/transform/globals.js"; // Handles Logic.* calls
 
 /**
  * Transforms a CallExpression node into a subgoal IR instruction.

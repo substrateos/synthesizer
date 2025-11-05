@@ -1,6 +1,6 @@
-import chatMessagesInit from "@/chat/messages/init"
+import chatMessagesInit from "@/chat/messages/init.js"
 
-import createChatCompletion from "@/services/aiChat/operations/createChatCompletion"
+import createChatCompletion from "@/services/aiChat/operations/createChatCompletion.js"
 
 const origConsoleLog = console.log
 

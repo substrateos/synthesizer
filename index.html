@@ -67,7 +67,11 @@ if chat is enabled, here are some things to try:
                 "@/": "./featuresets/Synth/"
             },
             "./featuresets/type-javascript/": {
-                "@/": "./featuresets/type-javascript/"
+                "@/": "./featuresets/type-javascript/",
+                "@/do/get/javascript/ast": "./featuresets/type-javascript/do/get/javascript/ast.js",
+                "@/do/get/javascript/deps": "./featuresets/type-javascript/do/get/javascript/deps.js",
+                "@/do/get/javascript/depmap": "./featuresets/type-javascript/do/get/javascript/depmap.js",
+                "@/do/get/javascript/docs": "./featuresets/type-javascript/do/get/javascript/docs.js"
             }
         }
     }
@@ -173,7 +177,7 @@ if chat is enabled, here are some things to try:
         const fetchVendorSchema = async (name) => await fetchJSON(`tools/${name}.openapi.json`)
 
         await workspace.write((await fetchUnitsFromManifestAt('./featuresets/type-openapi/manifest.js')).units)
-        const openapiSchema = await workspace.get("lib/openapi/schema")
+        const openapiSchema = await workspace.get("lib/openapi/schema.js")
         const { enumerateServiceFunctions } = openapiSchema
 
         const serviceUnits = {}

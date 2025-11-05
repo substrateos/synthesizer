@@ -1,6 +1,6 @@
-import initialInstructions from "@/chat/messages/init/instructions"
-import initialDemos from "@/chat/messages/init/demos"
-import runMessageAssistant from "@/do/get/chat/message/assistant/evaluation"
+import initialInstructions from "@/chat/messages/init/instructions.js"
+import initialDemos from "@/chat/messages/init/demos.js"
+import runMessageAssistant from "@/do/get/chat/message/assistant/evaluation.js"
 import listGlobals from "@/globals/listGlobals"
 
 export default async function() {

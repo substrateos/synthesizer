@@ -1,8 +1,8 @@
-import createVars from "@/lib/logic/vars";
-import unify from "@/lib/logic/unify";
-import {unifyTag} from "@/lib/logic/tags";
-import ArrayPattern from "@/lib/logic/unify/ArrayPattern";
-import ObjectPattern from "@/lib/logic/unify/ObjectPattern";
+import createVars from "@/lib/logic/vars.js";
+import unify from "@/lib/logic/unify.js";
+import {unifyTag} from "@/lib/logic/tags.js";
+import ArrayPattern from "@/lib/logic/unify/ArrayPattern.js";
+import ObjectPattern from "@/lib/logic/unify/ObjectPattern.js";
 
 // This helper is now passed the library to properly serialize constraints.
 function serialize(data, library) {

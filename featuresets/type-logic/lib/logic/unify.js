@@ -2,7 +2,7 @@ import {
     unifyTag,
     groundTag,
     symbolsTag,
-} from '@/lib/logic/tags'
+} from "@/lib/logic/tags.js"
 
 /**
  * Recursively finds all unique symbols (logic variables) in a data structure.

@@ -1,4 +1,4 @@
-import trimNode from '@/lib/logic/compile/transform/util/trim';
+import trimNode from "@/lib/logic/compile/transform/util/trim.js";
 
 /**
  * Parses a `Logic.findall` call expression.

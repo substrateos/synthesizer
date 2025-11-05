@@ -1,6 +1,6 @@
-import Store from '@/lib/synth/Store.js'
-import Tracer from '@/lib/synth/Tracer.js'
-import doer from '@/lib/synth/doer.js'
+import Store from "@/lib/synth/Store.js"
+import Tracer from "@/lib/synth/Tracer.js"
+import doer from "@/lib/synth/doer.js"
 
 /**
  * Creates a buffered async generator that yields events from an EventTarget

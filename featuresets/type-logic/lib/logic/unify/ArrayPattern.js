@@ -1,4 +1,4 @@
-import { unifyTag, groundTag, reprTag, symbolsTag } from "@/lib/logic/tags";
+import { unifyTag, groundTag, reprTag, symbolsTag } from "@/lib/logic/tags.js";
 
 /**
  * Calculates the minimum required length for a pattern.

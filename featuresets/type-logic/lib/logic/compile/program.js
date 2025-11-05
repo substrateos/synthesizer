@@ -1,11 +1,11 @@
-import {parse as acornParse} from "@/lib/logic/acorn@8.15.0";
-import analyzeProgram from '@/lib/logic/compile/analyze/program';
-import transformProgram from '@/lib/logic/compile/transform/program';
-import generatePredicateResolver from '@/lib/logic/compile/generate/predicate';
-import unify, { resolve } from '@/lib/logic/unify';
-import { resolverTags, resolverTag, nameTag } from '@/lib/logic/tags';
-import ArrayPattern from '@/lib/logic/unify/ArrayPattern';
-import ObjectPattern from '@/lib/logic/unify/ObjectPattern';
+import {parse as acornParse} from "@/lib/logic/acorn@8.15.0.js";
+import analyzeProgram from "@/lib/logic/compile/analyze/program.js";
+import transformProgram from "@/lib/logic/compile/transform/program.js";
+import generatePredicateResolver from "@/lib/logic/compile/generate/predicate.js";
+import unify, { resolve } from "@/lib/logic/unify.js";
+import { resolverTags, resolverTag, nameTag } from "@/lib/logic/tags.js";
+import ArrayPattern from "@/lib/logic/unify/ArrayPattern.js";
+import ObjectPattern from "@/lib/logic/unify/ObjectPattern.js";
 
 // --- Main Transpilation Logic ---
 
@@ -39,10 +39,10 @@ export default function compileProgram(sourceCode) {
             .join('\n');
 
         generatedSource = `
-import unify, { resolve } from '@/lib/logic/unify';
-import ArrayPattern from '@/lib/logic/unify/ArrayPattern';
-import ObjectPattern from '@/lib/logic/unify/ObjectPattern';
-import { resolverTags, resolverTag, nameTag } from '@/lib/logic/tags';
+import unify, { resolve } from "@/lib/logic/unify.js";
+import ArrayPattern from "@/lib/logic/unify/ArrayPattern.js";
+import ObjectPattern from "@/lib/logic/unify/ObjectPattern.js";
+import { resolverTags, resolverTag, nameTag } from "@/lib/logic/tags.js";
 
 ${resolverCode}
 

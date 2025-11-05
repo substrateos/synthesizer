@@ -1,5 +1,5 @@
-import DFS from "@/lib/logic/schedulers/DFS";
-import {configTag} from "@/lib/logic/tags"
+import DFS from "@/lib/logic/schedulers/DFS.js";
+import {configTag} from "@/lib/logic/tags.js"
 
 export default function GoalSeries({nextID=1, defaultSchedulerClass=DFS, defaultTracer}={}) {
     // A "Goal" is a context object for a single query instance (e.g., `path(X, 'd')`).
