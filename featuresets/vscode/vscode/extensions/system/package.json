@@ -1,0 +1,23 @@
+{
+    "name": "system",
+    "publisher": "substrateos",
+    "displayName": "Synthesizer Unit Editor",
+    "description": "",
+    "version": "0.2.0",
+    "categories": [
+        "Other"
+    ],
+    "engines": {
+        "vscode": "^1.103.2"
+    },
+    "browser": "./extension.js",
+    "enabledApiProposals": [
+        "ipc"
+    ],
+    "activationEvents": [
+        "onFileSystem:synth"
+    ],
+    "extensionKind": [
+        "web"
+    ]
+}

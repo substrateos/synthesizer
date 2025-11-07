@@ -5,6 +5,11 @@ here are some things to try
 
     ---
 
+    // open the workspace in an embedded vscode
+    await workspace.do.vscode()
+
+    ---
+
     // run all registered test units
     await workspace.do.test()
 
@@ -121,6 +126,7 @@ if chat is enabled, here are some things to try:
     await workspace.write({
         ...(await fetchUnitsFromManifestAt('./featuresets/type-logic/manifest.js')).units,
         ...(await fetchUnitsFromManifestAt('./featuresets/type-dom-renkon/manifest.js')).units,
+        ...(await fetchUnitsFromManifestAt('./featuresets/vscode/manifest.js')).units,
     })
 
     for (const name of listGlobals()) {
@@ -227,5 +233,4 @@ if chat is enabled, here are some things to try:
 
         await workspace.resetZygote()
     }
-
 </script>
