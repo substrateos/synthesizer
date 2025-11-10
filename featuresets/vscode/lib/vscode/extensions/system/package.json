@@ -19,5 +19,20 @@
     ],
     "extensionKind": [
         "web"
-    ]
+    ],
+    "contributes": {
+        "commands": [
+            {
+                "command": "synth.newContext",
+                "title": "New Context..."
+            }
+        ],
+        "menus": {
+            "explorer/context": [
+                {
+                    "command": "synth.newContext"
+                }
+            ]
+        }
+    }
 }

@@ -294,7 +294,7 @@ export default {
 
         let found = false;
 
-        // 1. Handle file rename
+        // Handle file rename
         const fileUnit = synth.read(oldName);
         if (fileUnit) {
             units[oldName] = undefined;
@@ -302,7 +302,7 @@ export default {
             found = true;
         }
 
-        // 2. Handle directory children rename
+        // Handle directory children rename
         for (const { name, unit } of synth.query({ filter: ({ name: n }) => n.startsWith(oldPrefix) })) {
             const newChildName = name.replace(oldPrefix, newPrefix);
             units[name] = undefined;
@@ -310,7 +310,7 @@ export default {
             found = true;
         }
 
-        // 3. Handle directory marker rename
+        // Handle directory marker rename
         const markerUnit = synth.read(oldMarkerName);
         if (markerUnit) {
             units[oldMarkerName] = undefined;

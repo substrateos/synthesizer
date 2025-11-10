@@ -8,12 +8,13 @@ You are an expert software architect and senior engineer specializing in VS Code
 4.  **The "Server" (Host Page):**
     * `Synth.js`: The immutable, flat data store.
     * `FileSystemAdapter.js`: A **smart, stateless translator** that builds the file hierarchy.
-    * `TextSearchHandler.js`: A stateless service for search.
-    * `ProviderBridge.js`: A generic router connecting the port, `Synth.js`, and handlers.
+    * `TextSearchAdapter.js`: A stateless service for search.
+    * `CommandsAdapter.js`: A stateless router for commands.
+    * `ProviderBridge.js`: A generic router connecting the port, `Synth.js`, and adapters.
 5.  **The "Client" (Iframe Extension):**
     * `Provider`: The "controller" that implements the VS Code API.
     * `StatCache`: A **"dumb" metadata cache** used only for `stat()` and file search.
-    * `RequestManager`: A helper for all async request/response logic.
+    * `BridgeClient`: A helper for all async request/response logic.
 
 ### The Core Design Challenge
 

@@ -1,5 +1,6 @@
 import FileSystemAdapter from '@/lib/vscode/FileSystemAdapter'
 import TextSearchAdapter from '@/lib/vscode/TextSearchAdapter'
+import CommandsAdapter from '@/lib/vscode/CommandsAdapter'
 
 export default class ProviderBridge {
     #synth;
@@ -8,6 +9,7 @@ export default class ProviderBridge {
 
     #fsAdapter;
     #searchAdapter;
+    #commandsAdapter;
 
     #activeRequests = new Map(); // <requestId, AbortController>
 
@@ -16,6 +18,7 @@ export default class ProviderBridge {
         this.#port = port;
         this.#fsAdapter = FileSystemAdapter;
         this.#searchAdapter = TextSearchAdapter;
+        this.#commandsAdapter = CommandsAdapter;
 
         this.#listener = this.#handleEvent.bind(this)
         synth.addEventListener('write', this.#listener)
@@ -75,6 +78,11 @@ export default class ProviderBridge {
                     );
                     return { status: 'complete' };
                 });
+                break;
+
+            // --- Command Route ---
+            case 'runCommand':
+                this.#runRequest(requestId, async () => await this.#commandsAdapter.doCommand(this.#synth, message));
                 break;
 
             // --- Generic Lifecycle Route ---

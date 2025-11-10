@@ -3,50 +3,94 @@
  * It handles request ID generation, promise creation, timeouts,
  * and cancellation.
  */
-class RequestManager {
+class BridgeClient {
   #pendingRequests = new Map();
+  #handlers = new Map();
   #nextRequestId = 0;
   #port;
-  #vscode;
+  #portListener;
 
-  constructor(port, vscode) {
-    if (!port || !vscode) throw new Error("RequestManager requires a port and vscode API.");
+  constructor(port) {
+    if (!port) throw new Error("BridgeClient requires a port.");
     this.#port = port;
-    this.#vscode = vscode;
   }
 
-  create({ timeoutMs = 5000, onProgress = null, token = null } = {}) {
+  /**
+   * Registers a handler for a specific message type.
+   */
+  handle(type, handler) {
+    this.#handlers.set(type, handler);
+  }
+
+  /**
+   * Master message listener.
+   */
+  #onMessage(message) {
+    switch (message.type) {
+      // These are responses to requests *we* sent
+      case 'response':
+        this.#handleResponse(message);
+        break;
+      case 'progress':
+        this.#handleProgress(message);
+        break;
+
+      // These are "push" events *from* the server
+      default:
+        const handler = this.#handlers.get(message.type);
+        if (handler) {
+          handler(message); // Pass the full message
+        } else {
+          console.warn(`BridgeClient: Received unhandled message type '${message.type}'`);
+        }
+    }
+  }
+
+  /**
+   * Creates, sends, and manages a new request.
+   * @returns {Promise<any>} A promise that resolves with the server's response data.
+   */
+  request(message, { timeoutMs, onProgress = null, token = null } = {}) {
     const requestId = this.#nextRequestId++;
+
     const promise = new Promise((resolve, reject) => {
-      const timeoutId = setTimeout(() => {
-        reject(new Error(`Request ${requestId} timed out.`));
-      }, timeoutMs);
+      const timeoutId = timeoutMs && setTimeout(() => reject(new Error(`Request ${requestId} timed out.`)), timeoutMs);
+
       const cleanupAndResolve = (value) => {
-        clearTimeout(timeoutId);
+        timeoutId && clearTimeout(timeoutId);
         this.#pendingRequests.delete(requestId);
         resolve(value);
       };
+
       const cleanupAndReject = (error) => {
-        clearTimeout(timeoutId);
+        timeoutId && clearTimeout(timeoutId);
         this.#pendingRequests.delete(requestId);
         reject(error);
       };
+
       this.#pendingRequests.set(requestId, {
         resolve: cleanupAndResolve,
         reject: cleanupAndReject,
         handleProgress: onProgress
       });
+
       if (token) {
         token.onCancellationRequested(() => {
           this.#port.postMessage({ type: 'cancel', requestId });
-          cleanupAndReject(this.#vscode.FileSystemError.Canceled());
+          // Use the platform-standard generic AbortError
+          cleanupAndReject(new DOMException('Request aborted', 'AbortError'));
         });
       }
     });
-    return { promise, id: requestId };
+
+    // Get the message payload from the factory and send it
+    const messagePayload = message(requestId);
+    this.#port.postMessage(messagePayload);
+
+    return promise;
   }
 
-  handleResponse({ requestId, data, error }) {
+  #handleResponse({ requestId, data, error }) {
     const request = this.#pendingRequests.get(requestId);
     if (!request) return false;
     if (error) {
@@ -57,20 +101,62 @@ class RequestManager {
     return true;
   }
 
-  handleProgress({ requestId, payload }) {
+  #handleProgress({ requestId, payload }) {
     const request = this.#pendingRequests.get(requestId);
     if (request && request.handleProgress) {
       request.handleProgress(payload);
     }
   }
 
+  listen() {
+    this.#portListener = this.#port.onDidReceiveMessage(this.#onMessage.bind(this));
+  }
+
   dispose() {
+    this.#portListener?.dispose();
     for (const [id, request] of this.#pendingRequests.entries()) {
       request.reject(new Error('Provider is being disposed.'));
     }
     this.#pendingRequests.clear();
   }
 }
+
+/**
+ * This is the generic handler we register for all commands.
+ * @param {string} commandId The command being run (e.g., 'synth.newContext')
+ * @param {...any} args Contextual args from VS Code (e.g., URI from explorer)
+ */
+async function handleCommand({ vscode, bridgeClient }, commandId, ...args) {
+  try {
+    const response = await bridgeClient.request(id => ({
+      type: 'runCommand',
+      requestId: id,
+      commandId,
+      commandArgs: args,
+    }));
+
+    if (!response.function) {
+      // This was a pure server-side action that required no
+      // client UI. We're done.
+      if (response.message) {
+        vscode.window.showInformationMessage(response.message);
+      }
+      return;
+    }
+
+    // We received a function string. Execute it.
+    const factoryFn = (new Function('return ' + response.function))();
+    const workerFn = factoryFn(...(response.params || []));
+
+    // The workerFn is (vscode, bridgeClient).
+    // It needs the bridgeClient to send *new* messages.
+    await workerFn(vscode, bridgeClient);
+  } catch (e) {
+    // Catches errors from the Stage 1 request
+    vscode.window.showErrorMessage(`Command Error: ${e.message}`);
+    console.error(e);
+  }
+};
 
 /**
  * --- "Dumb" Cache ---
@@ -200,76 +286,36 @@ function getParentPath(path) {
 /**
  * A FileSystemProvider that acts as a thin "controller".
  * It delegates state management to StatCache and async logic
- * to RequestManager.
+ * to BridgeClient.
  */
 class Provider /* implements vscode.FileSystemProvider */ {
   static scheme = 'synth';
+  onDidChangeFile;
   #vscode;
   #emitter;
-  onDidChangeFile;
-  #port;
-  #portListener;
   #watchers = new Map();
   #cache;
-  #requestManager;
+  #bridgeClient;
 
-  constructor(vscode, port) {
+  constructor(vscode, bridgeClient) {
     if (!vscode) throw new Error('A vscode module instance must be provided.');
-    if (!port) throw new Error('A MessagePort instance must be provided.');
+    if (!bridgeClient) throw new Error('A BridgeClient instance must be provided.');
     this.#vscode = vscode;
-    this.#port = port;
+    this.#bridgeClient = bridgeClient;
     this.#emitter = new vscode.EventEmitter();
-    this.onDidChangeFile = this.#emitter.event;
     this.#cache = new StatCache(vscode);
-    this.#requestManager = new RequestManager(port, vscode);
-    this.#portListener = this.#port.onDidReceiveMessage(this.handleMessage.bind(this));
-    (async () => {
-      try {
-        const { promise, id } = this.#requestManager.create({ timeoutMs: 10000 });
-        this.#port.postMessage({ type: 'getState', requestId: id });
-        const data = await promise;
-        const notifications = this.#cache.applyState(data.state);
-        this.#emitter.fire(notifications);
-      } catch (e) {
-        console.error("Failed to get initial state:", e);
-        this.#vscode.window.showErrorMessage(`SynthFS: Failed to get initial state: ${e.message}`);
-      }
-    })();
+    this.onDidChangeFile = this.#emitter.event;
   }
 
   dispose() {
-    this.#portListener.dispose();
     this.#emitter.dispose();
     this.#watchers.clear();
-    this.#requestManager.dispose();
+    this.#bridgeClient.dispose();
   }
 
-  handleMessage(message) {
-    switch (message.type) {
-      case 'restore':
-        this.#handleExternalRestore();
-        break;
-      case 'write':
-        this.#handleExternalWrite(message.data);
-        break;
-      case 'response':
-        if (!this.#requestManager.handleResponse(message)) {
-          console.warn(`Provider: Received response for unknown requestId: ${message.requestId}`);
-        }
-        break;
-      case 'progress':
-        this.#requestManager.handleProgress(message);
-        break;
-      default:
-        console.warn(`Provider: Received unknown message type '${message.type}'`);
-    }
-  }
-
-  async #handleExternalRestore() {
+  async applyRestore() {
     try {
-      const { promise, id } = this.#requestManager.create({ timeoutMs: 10000 });
-      this.#port.postMessage({ type: 'getState', requestId: id });
-      const data = await promise;
+      const data = await this.#bridgeClient.request(id => ({ type: 'getState', requestId: id }));
       const notifications = this.#cache.applyState(data.state);
       this.#emitter.fire(notifications);
     } catch (e) {
@@ -277,7 +323,7 @@ class Provider /* implements vscode.FileSystemProvider */ {
     }
   }
 
-  #handleExternalWrite(data) {
+  applyWrite(data) {
     const notifications = this.#cache.applyWrite(data);
     if (notifications.length > 0) {
       this.#emitter.fire(notifications);
@@ -305,37 +351,19 @@ class Provider /* implements vscode.FileSystemProvider */ {
 
   async readDirectory(uri) {
     this.#cache.stat(uri.path); // Fail fast
-    const { promise, id } = this.#requestManager.create({ timeoutMs: 5000 });
-    this.#port.postMessage({
-      type: 'readDirectory',
-      path: uri.path,
-      requestId: id
-    });
-    const data = await promise;
+    const data = await this.#bridgeClient.request(id => ({ type: 'readDirectory', path: uri.path, requestId: id }));
     return data.entries.map(([name, type]) => {
       return [name, type === 'directory' ? this.#vscode.FileType.Directory : this.#vscode.FileType.File];
     });
   }
 
   async createDirectory(uri) {
-    const { promise, id } = this.#requestManager.create({ timeoutMs: 5000 });
-    this.#port.postMessage({
-      type: 'createDirectory',
-      requestId: id,
-      path: uri.path
-    });
-    await promise;
+    await this.#bridgeClient.request(id => ({ type: 'createDirectory', requestId: id, path: uri.path }));
   }
 
   async readFile(uri) {
     this.#cache.stat(uri.path);
-    const { promise, id } = this.#requestManager.create({ timeoutMs: 5000 });
-    this.#port.postMessage({
-      type: 'readFile',
-      path: uri.path,
-      requestId: id
-    });
-    const data = await promise;
+    const data = await this.#bridgeClient.request(id => ({ type: 'readFile', path: uri.path, requestId: id }));
     return new TextEncoder().encode(data.content);
   }
 
@@ -347,87 +375,63 @@ class Provider /* implements vscode.FileSystemProvider */ {
     );
     if (openDoc) typeHint = openDoc.languageId;
 
-    const { promise, id } = this.#requestManager.create({ timeoutMs: 5000 });
-    this.#port.postMessage({
+    await this.#bridgeClient.request(id => ({
       type: 'writeFile',
       requestId: id,
       path: uri.path,
       content: contentString,
       typeHint: typeHint,
-      options: options // <-- THIS IS THE FIX
-    });
-    await promise;
+      options: options
+    }));
   }
 
   async delete(uri, options) {
-    this.#cache.stat(uri.path); // <-- ADD THIS LINE
-    const { promise, id } = this.#requestManager.create({ timeoutMs: 10000 });
-    this.#port.postMessage({
+    this.#cache.stat(uri.path);
+    await this.#bridgeClient.request(id => ({
       type: 'delete',
       requestId: id,
       path: uri.path,
       options: options
-    });
-    await promise;
+    }));
   }
 
   async rename(oldUri, newUri, options) {
-    this.#cache.stat(oldUri.path); // <-- ADD THIS LINE (check the source)
-    const { promise, id } = this.#requestManager.create({ timeoutMs: 10000 });
-    this.#port.postMessage({
+    this.#cache.stat(oldUri.path);
+    await this.#bridgeClient.request(id => ({
       type: 'rename',
       requestId: id,
       oldPath: oldUri.path,
       newPath: newUri.path,
-      options: options
-    });
-    await promise;
+      options: options,
+    }));
   }
 
-  // In class Provider
-
-  provideTextSearchResults(query, options, progress, token) {
-
-    // --- Fixed (Correct) Code ---
-
+  async provideTextSearchResults(query, options, progress, token) {
     const onProgress = (payload) => {
-      // "Revive" the plain JSON ranges from the server into vscode.Range objects
-      const sourceRanges = payload.ranges.map(r => new this.#vscode.Range(
-        r.sourceRange.start.line,
-        r.sourceRange.start.character,
-        r.sourceRange.end.line,
-        r.sourceRange.end.character
-      ));
-
-      const previewRanges = payload.ranges.map(r => new this.#vscode.Range(
-        r.previewRange.start.line,
-        r.previewRange.start.character,
-        r.previewRange.end.line,
-        r.previewRange.end.character
-      ));
-
-      // Report the result in the format VS Code expects (vscode.TextSearchMatch)
       progress.report({
         uri: this.#vscode.Uri.from({ scheme: this.scheme, path: payload.uriPath }),
 
-        // 1. The ranges in the *full document*
-        ranges: sourceRanges,
+        ranges: payload.ranges.map(r => new this.#vscode.Range(
+          r.sourceRange.start.line,
+          r.sourceRange.start.character,
+          r.sourceRange.end.line,
+          r.sourceRange.end.character
+        )),
 
-        // 2. The preview object
         preview: {
           text: payload.previewText,
-          matches: previewRanges // The ranges *relative to the preview text*
+          // The ranges *relative to the preview text*
+          matches: payload.ranges.map(r => new this.#vscode.Range(
+            r.previewRange.start.line,
+            r.previewRange.start.character,
+            r.previewRange.end.line,
+            r.previewRange.end.character
+          )),
         }
       });
     };
 
-    const { promise, id } = this.#requestManager.create({
-      // timeoutMs: 30000, 
-      onProgress,
-      token,
-    });
-
-    this.#port.postMessage({
+    return await this.#bridgeClient.request(id => ({
       type: 'provideTextSearchResults',
       requestId: id,
       query: {
@@ -441,8 +445,7 @@ class Provider /* implements vscode.FileSystemProvider */ {
         includes: options.includes,
         maxResults: options.maxResults
       }
-    });
-    return promise;
+    }), { onProgress, token });
   }
 
   provideFileSearchResults(query, options, token) {
@@ -461,16 +464,31 @@ class Provider /* implements vscode.FileSystemProvider */ {
 
 const vscode = require('vscode')
 
-function activate(context) {
+async function activate(context) {
   try {
     const port = context.messagePassingProtocol;
-    console.log('EXTENSION IS ACTIVATING NOW!!!!', { context, port });
-    const provider = new Provider(vscode, port);
+
+    const bridgeClient = new BridgeClient(port);
+
+    const provider = new Provider(vscode, bridgeClient);
+    bridgeClient.handle('restore', async (message) => await provider.applyRestore());
+    bridgeClient.handle('write', (message) => provider.applyWrite(message.data));
+
+    bridgeClient.listen();
+
+    // load initial state
+    await provider.applyRestore();
+
+    // grab list of commands from extension package.json
+    const pkgJson = context.extension.packageJSON;
+    const commands = (pkgJson.contributes?.commands || []).map(({command}) => command)
+
     context.subscriptions.push(
       provider,
       vscode.workspace.registerFileSystemProvider(provider.scheme, provider, { isCaseSensitive: true }),
       vscode.workspace.registerTextSearchProvider(provider.scheme, provider),
-      vscode.workspace.registerFileSearchProvider(provider.scheme, provider)
+      vscode.workspace.registerFileSearchProvider(provider.scheme, provider),
+      ...commands.map(commandId => vscode.commands.registerCommand(commandId, handleCommand.bind(null, { vscode, bridgeClient }, commandId))),
     );
   } catch (e) {
     vscode.window.showErrorMessage(`Failed to initialize Synth workspace: ${e.message}`);
