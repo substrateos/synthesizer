@@ -10,8 +10,8 @@ export default {
         'lib/vscode/AGENTS.md',
         'lib/vscode/vscode.html',
 
-        'vscode/extensions/system/extension.js',
-        'vscode/extensions/system/package.json',
-        'vscode/extensions/system/package.nls.json',
+        'lib/vscode/extensions/system/extension.js',
+        'lib/vscode/extensions/system/package.json',
+        'lib/vscode/extensions/system/package.nls.json',
     ],
 }

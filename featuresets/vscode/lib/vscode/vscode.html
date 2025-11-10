@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="../../vscode/assets/out/vs/workbench/workbench.web.main.internal.css" />
+  <link rel="stylesheet" href="../../vscode/out/vs/workbench/workbench.web.main.internal.css" />
 </head>
 <body style="margin:0;overflow:hidden;">
-<script src="../../vscode/assets/out/vs/loader.js"></script>
+<script src="../../vscode/out/vs/loader.js"></script>
 <script>
-    const baseUrl = new URL('../../vscode/assets/out', window.location.href).toString();
+    const baseUrl = new URL('../../vscode/out', window.location.href).toString();
     require.config({baseUrl});
 </script>
-<script src="../../vscode/assets/out/nls.messages.js"></script>
-<script src="../../vscode/assets/out/vs/workbench/workbench.web.main.js"></script>
+<script src="../../vscode/out/nls.messages.js"></script>
+<script src="../../vscode/out/vs/workbench/workbench.web.main.js"></script>
 <script type="module">
-    const url = new URL('../../', window.location.href);
+    const url = new URL('./', window.location.href);
     const scheme = url.protocol.replace(":", "");
     function createWorkbench(port) {
         require(['vs/workbench/workbench.web.main'], function (wb) {
@@ -38,7 +38,7 @@
                     {
                         scheme,
                         authority: url.host,
-                        path: `${url.pathname}/vscode/extensions/system`,
+                        path: `${url.pathname}/extensions/system`,
                     }
                 ],
                 folderUri: { scheme: "synth", path: "/" },
