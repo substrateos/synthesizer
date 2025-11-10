@@ -51,7 +51,6 @@ export default async (base, subpaths, sharedAttributes={}) => {
 
         let source = await response.text()
         if (attributes.type === 'javascript') {
-            source = source + `\n//# sourceURL=${name}`
             const {ast} = parse({source})
             const {
                 consts: constNodes,

@@ -63,6 +63,9 @@ ${maybeExportNames}
     `]
     }).filter(_ => _)
 
+    // add the magic trailing sourceURL comment so we can make sense of it in dev tools
+    source = source + `\n//# sourceURL=${name}`
+    
     const {
         entryURL,
         importMap,
@@ -97,13 +100,14 @@ ${maybeExportNames}
 // - this hack can break our own console.log
 // - this can get stuck in an infinite loop
 // - the source or test can interfere with our own execution
-async function runJavascriptScriptWithDepValues({source, log, depValues}) {
+async function runJavascriptScriptWithDepValues({name, source, log, depValues}) {
     const renderedSource = [
         `return (async () => {`,
         'arguments[0] && (console.log = arguments[0]);',
         ...Object.keys(depValues).map(name => `const ${name} = arguments[1].${name};`),
         source,
         `})();`,
+        `//# sourceURL=${name}`,
     ].join("\n")
     
     try {
@@ -150,10 +154,10 @@ async function runJavascript(handlerInputs) {
         return await runJavaScriptModule({name, source, workspace, deps, depmap, ast})
     }
 
-    return await runJavascriptScript({source, workspace, deps, depmap, ast})
+    return await runJavascriptScript({name, source, workspace, deps, depmap, ast})
 }
 
-async function runJavascriptScript({source, workspace, deps, depmap, ast}) {
+async function runJavascriptScript({name, source, workspace, deps, depmap, ast}) {
 
     // rewrite the source to return the value of expression if necessary
     source = insertReturn({source, ast})
@@ -175,7 +179,7 @@ async function runJavascriptScript({source, workspace, deps, depmap, ast}) {
         console.warn('could not parse free variables in source', e, {source})
     }
         
-    return await runJavascriptScriptWithDepValues({source, log: workspace.log, depValues})
+    return await runJavascriptScriptWithDepValues({name, source, log: workspace.log, depValues})
 }
 
 const getDefaultUnlessTypeof = (o, t) => {

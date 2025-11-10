@@ -1,4 +1,4 @@
-import {parse as acornParse} from "@/lib/dom-renkon/acorn@8.15.0.js"
+import {parse as acornParse} from "@/lib/dom-renkon/acorn@8.15.0"
 
 export default function parse({source}) {
     const ast = acornParse(source, {
