@@ -53,4 +53,17 @@ console.log(bar)
             freeVariables: ["bar"],
         }
     },
+    {
+        description: "switch",
+        params: [`
+switch (true) {
+default:
+    const foo = 'x';
+    console.log(foo);
+}
+`],
+        returns: {
+            freeVariables: [],
+        }
+    },
 ]

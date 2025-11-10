@@ -1,97 +1,98 @@
-import { ancestor, simple } from "@/lib/logic/acorn-walk@8.3.4.js"
+import { ancestor, simple } from "@/lib/logic/acorn-walk@8.3.4"
 
 // A set of common JS globals to ignore.
 const KNOWN_GLOBALS = new Set([
-  "AbortController",
-  "arguments", // not quite a global, but fine treat it as one
-  "Array",
-  "ArrayBuffer",
-  "atob",
-  "AudioContext",
-  "Blob",
-  "Boolean",
-  "BigInt",
-  "btoa",
-  "cancelAnimationFrame",
-  "clearInterval",
-  "clearTimeout",
-  "console",
-  "crypto",
-  "CustomEvent",
-  "DataView",
-  "Date",
-  "decodeURI",
-  "decodeURIComponent",
-  "devicePixelRatio",
-  "document",
-  "encodeURI",
-  "encodeURIComponent",
-  "Error",
-  "escape",
-  "eval",
-  "EventSource",
-  "fetch",
-  "File",
-  "FileList",
-  "FileReader",
-  "Float32Array",
-  "Float64Array",
-  "Function",
-  "globalThis",
-  "Headers",
-  "Image",
-  "ImageData",
-  "Infinity",
-  "Int16Array",
-  "Int32Array",
-  "Int8Array",
-  "Intl",
-  "isFinite",
-  "isNaN",
-  "JSON",
-  "Map",
-  "Math",
-  "MessageChannel",
-  "NaN",
-  "Number",
-  "navigator",
-  "Object",
-  "parseFloat",
-  "parseInt",
-  "performance",
-  "Path2D",
-  "Promise",
-  "Proxy",
-  "RangeError",
-  "ReferenceError",
-  "Reflect",
-  "RegExp",
-  "requestAnimationFrame",
-  "Set",
-  "self",
-  "setInterval",
-  "setTimeout",
-  "String",
-  "structuredClone",
-  "Symbol",
-  "SyntaxError",
-  "TextDecoder",
-  "TextEncoder",
-  "this",
-  "TypeError",
-  "Uint16Array",
-  "Uint32Array",
-  "Uint8Array",
-  "Uint8ClampedArray",
-  "undefined",
-  "unescape",
-  "URIError",
-  "URL",
-  "WeakMap",
-  "WeakSet",
-  "WebSocket",
-  "Worker",
-  "window"
+    "AbortController",
+    "arguments", // not quite a global, but fine treat it as one
+    "Array",
+    "ArrayBuffer",
+    "atob",
+    "AudioContext",
+    "Blob",
+    "Boolean",
+    "BigInt",
+    "btoa",
+    "cancelAnimationFrame",
+    "clearInterval",
+    "clearTimeout",
+    "console",
+    "crypto",
+    "CustomEvent",
+    "DataView",
+    "Date",
+    "decodeURI",
+    "decodeURIComponent",
+    "devicePixelRatio",
+    "document",
+    "DOMException",
+    "encodeURI",
+    "encodeURIComponent",
+    "Error",
+    "escape",
+    "eval",
+    "EventSource",
+    "fetch",
+    "File",
+    "FileList",
+    "FileReader",
+    "Float32Array",
+    "Float64Array",
+    "Function",
+    "globalThis",
+    "Headers",
+    "Image",
+    "ImageData",
+    "Infinity",
+    "Int16Array",
+    "Int32Array",
+    "Int8Array",
+    "Intl",
+    "isFinite",
+    "isNaN",
+    "JSON",
+    "Map",
+    "Math",
+    "MessageChannel",
+    "NaN",
+    "Number",
+    "navigator",
+    "Object",
+    "parseFloat",
+    "parseInt",
+    "performance",
+    "Path2D",
+    "Promise",
+    "Proxy",
+    "RangeError",
+    "ReferenceError",
+    "Reflect",
+    "RegExp",
+    "requestAnimationFrame",
+    "Set",
+    "self",
+    "setInterval",
+    "setTimeout",
+    "String",
+    "structuredClone",
+    "Symbol",
+    "SyntaxError",
+    "TextDecoder",
+    "TextEncoder",
+    "this",
+    "TypeError",
+    "Uint16Array",
+    "Uint32Array",
+    "Uint8Array",
+    "Uint8ClampedArray",
+    "undefined",
+    "unescape",
+    "URIError",
+    "URL",
+    "WeakMap",
+    "WeakSet",
+    "WebSocket",
+    "Worker",
+    "window"
 ]);
 
 /**
@@ -132,7 +133,40 @@ function findBindingIdentifiers(node, bindings = new Set()) {
     return bindings;
 }
 
-export default function findFreeVariables({ast}) {
+/**
+ * Helper to check for block-scoped declarations (let, const, function, class)
+ * in a list of statements.
+ * @param {Node[]} statements - An array of statement nodes.
+ * @param {string} name - The identifier name to search for.
+ * @returns {boolean} - True if the name is declared, false otherwise.
+ */
+function checkBlockBody(statements, name) {
+    for (const statement of statements) {
+        // Check for 'let' and 'const'
+        if (statement.type === 'VariableDeclaration' && statement.kind !== 'var') {
+            for (const declarator of statement.declarations) {
+                if (findBindingIdentifiers(declarator.id).has(name)) {
+                    return true;
+                }
+            }
+        }
+        // Also check for 'function' declarations
+        if (statement.type === 'FunctionDeclaration') {
+            if (statement.id && statement.id.name === name) {
+                return true;
+            }
+        }
+        // Also check for 'class' declarations
+        if (statement.type === 'ClassDeclaration') {
+            if (statement.id && statement.id.name === name) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+export default function findFreeVariables({ ast }) {
     const freeVars = new Set();
     ancestor(ast, {
         Identifier(node, ancestors) {
@@ -144,7 +178,9 @@ export default function findFreeVariables({ast}) {
                 (parent.type === 'Property' && parent.key === node && !parent.computed) ||
                 (parent.type === 'VariableDeclarator' && parent.id === node) ||
                 (parent.type.includes('Function') && parent.id === node) ||
-                ((parent.type === 'ClassDeclaration' || parent.type === 'ClassExpression') && parent.id === node)) {
+                ((parent.type === 'ClassDeclaration' || parent.type === 'ClassExpression') && parent.id === node) ||
+                (parent.type === 'UnaryExpression' && parent.operator === 'typeof' && parent.argument === node)
+            ) {
                 return;
             }
 
@@ -193,31 +229,20 @@ export default function findFreeVariables({ast}) {
 
                 // Check for block-level and top-level program scope.
                 if (ancestorNode.type === 'BlockStatement' || ancestorNode.type === 'Program') {
-                    for (const statement of ancestorNode.body) {
-                        // Check for 'let' and 'const'
-                        if (statement.type === 'VariableDeclaration' && statement.kind !== 'var') {
-                            for (const declarator of statement.declarations) {
-                                if (findBindingIdentifiers(declarator.id).has(name)) {
-                                    isDeclared = true;
-                                    break;
-                                }
-                            }
+                    // Use the helper function
+                    if (checkBlockBody(ancestorNode.body, name)) {
+                        isDeclared = true;
+                    }
+                }
+
+                // Check for SwitchStatement scope
+                if (ancestorNode.type === 'SwitchStatement') {
+                    for (const switchCase of ancestorNode.cases) {
+                        // Check the 'consequent' statements of each case
+                        if (checkBlockBody(switchCase.consequent, name)) {
+                            isDeclared = true;
+                            break;
                         }
-                        // Also check for 'function' declarations
-                        if (statement.type === 'FunctionDeclaration') {
-                            if (statement.id && statement.id.name === name) {
-                                isDeclared = true;
-                                break;
-                            }
-                        }
-                        // Also check for 'class' declarations
-                        if (statement.type === 'ClassDeclaration') {
-                            if (statement.id && statement.id.name === name) {
-                                isDeclared = true;
-                                break;
-                            }
-                        }
-                        if (isDeclared) break;
                     }
                 }
             }
