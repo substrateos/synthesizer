@@ -120,6 +120,7 @@ if chat is enabled, here are some things to try:
 
     await workspace.write({
         ...(await fetchUnitsFromManifestAt('./featuresets/type-logic/manifest.js')).units,
+        ...(await fetchUnitsFromManifestAt('./featuresets/logic/manifest.js')).units,
         ...(await fetchUnitsFromManifestAt('./featuresets/type-dom-renkon/manifest.js')).units,
         ...(await fetchUnitsFromManifestAt('./featuresets/vscode/manifest.js')).units,
     })
