@@ -24,7 +24,7 @@ function createConfiguredQuery(config) {
         const originalBind = query.bind;
         const newBind = function (...bindArgs) {
             const fn = originalBind.apply(this, bindArgs)
-            for (const tag in resolverTags) {
+            for (const tag of resolverTags) {
                 if (tag in this) {
                     fn[tag] = this[tag]
                 }

@@ -221,8 +221,8 @@ export default function GoalSeries({nextID=1, defaultSchedulerClass=DFS, default
 
                 if (next.subgoal) {
                     // switch to the goal it's for
-                    const subgoal = task.subgoal
-                    subgoal.continueAsSubgoal(task.notify)
+                    const subgoal = next.subgoal
+                    subgoal.continueAsSubgoal(next.notify)
                     return {goal: subgoal, signal: {type: undefined}} // fake signal
                 }
 
