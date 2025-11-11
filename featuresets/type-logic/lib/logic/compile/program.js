@@ -24,10 +24,10 @@ export default function compileProgram(sourceCode) {
     // --- Step 4: Code Generation ---
     // This pass takes the final IR and generates the JavaScript resolver code.
     let resolverCode = '';
-    for (const predName in predicates) {
-        const ir = predicates[predName];
+    for (const mangledName in predicates) {
+        const ir = predicates[mangledName];
         if (ir.clauses.length > 0) {
-            resolverCode += generatePredicateResolver(predName, ir);
+            resolverCode += generatePredicateResolver(mangledName, ir);
         }
     }
 
