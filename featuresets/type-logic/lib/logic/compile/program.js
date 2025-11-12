@@ -1,76 +1,22 @@
 import {parse as acornParse} from "@/lib/logic/acorn@8.15.0.js";
 import analyzeProgram from "@/lib/logic/compile/analyze/program.js";
 import transformProgram from "@/lib/logic/compile/transform/program.js";
-import generatePredicateResolver from "@/lib/logic/compile/generate/predicate.js";
 import unify, { resolve } from "@/lib/logic/unify.js";
 import { resolverTags, resolverTag, nameTag } from "@/lib/logic/tags.js";
 import ArrayPattern from "@/lib/logic/unify/ArrayPattern.js";
 import ObjectPattern from "@/lib/logic/unify/ObjectPattern.js";
-
-// --- Main Transpilation Logic ---
 
 export default function compileProgram(sourceCode) {
-    // --- Step 1: Parse the source to get an AST ---
     const ast = acornParse(sourceCode, { ecmaVersion: 2022, sourceType: 'script' });
 
-    // --- Step 2: Analysis Pass ---
-    // This pass discovers all clauses and resolves their lexical scopes.
+    // Discover all clauses and resolves their lexical scopes.
     const { isModule, topLevelScope } = analyzeProgram(ast, sourceCode);
 
-    // --- Step 3: IR Transform Pass ---
-    // This pass transforms the annotated map into the final IR for codegen.
-    const predicates = transformProgram(topLevelScope);
-
-    // --- Step 4: Code Generation ---
-    // This pass takes the final IR and generates the JavaScript resolver code.
-    let resolverCode = '';
-    for (const mangledName in predicates) {
-        const ir = predicates[mangledName];
-        if (ir.clauses.length > 0) {
-            resolverCode += generatePredicateResolver(mangledName, ir);
-        }
-    }
-
-    let generatedSource;
-    // --- Step 4: Assemble the final output string ---
-    if (isModule) {
-        const exports = Array.from(exportedPredicates)
-            .map(name => `export const ${name} = pred_${name};`)
-            .join('\n');
-
-        generatedSource = `
-import unify, { resolve } from "@/lib/logic/unify.js";
-import ArrayPattern from "@/lib/logic/unify/ArrayPattern.js";
-import ObjectPattern from "@/lib/logic/unify/ObjectPattern.js";
-import { resolverTags, resolverTag, nameTag } from "@/lib/logic/tags.js";
-
-${resolverCode}
-
-// --- Public, unmangled exports ---
-${exports}
-`;
-    } else {
-        const databaseEntries = [...topLevelScope.declaredPredicates.values()]
-        .map(clause => `${clause.name}: ${clause.mangledName}.bind(null, null)`)
-        .join(',\n        ');
-
-        generatedSource = `(function(utils) {
-    const { unify, resolverTags, resolverTag, nameTag, ArrayPattern, ObjectPattern } = utils;
-
-    ${resolverCode}
-
-    // --- The Public API Object ---
-    const database = {
-        ${databaseEntries}
-    };
-
-    return database;
-})`;
-    }
+    // Transform the topLevelScope into JavaScript.
+    const generatedSource = transformProgram(topLevelScope);
 
     return {
         generatedSource,
         utils: { unify, resolve, resolverTags, resolverTag, nameTag, ArrayPattern, ObjectPattern },
-        predicates,
     };
 }

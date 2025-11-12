@@ -4,7 +4,7 @@ import transformAssignment from "@/lib/logic/compile/transform/nodes/AssignmentE
  * Transforms a VariableDeclaration statement (e.g., `var A = 10, B;`)
  * into a series of unification goals for any variables with initial values.
  */
-export default function transformVariableDeclaration(stmt, context) {
+export default function transformVariableDeclaration(stmt, context, nextPC) {
     // A single `var` statement can declare multiple variables.
     return stmt.declarations.flatMap(declarator => {
         // We only generate a goal if there's an initial value (e.g., `= 10`).
@@ -21,6 +21,7 @@ export default function transformVariableDeclaration(stmt, context) {
             left: declarator.id,
             right: declarator.init,
         };
-        return transformAssignment(assignmentExpr, context);
+        const goal = transformAssignment(assignmentExpr, context, nextPC);
+        return [goal];
     });
 }

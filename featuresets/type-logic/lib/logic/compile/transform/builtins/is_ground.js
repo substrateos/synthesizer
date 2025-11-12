@@ -1,4 +1,5 @@
-import trimNode from "@/lib/logic/compile/transform/util/trim.js";
+import valueExpr from "@/lib/logic/compile/transform/exprs/value.js";
+import ifExpr from "@/lib/logic/compile/transform/exprs/if.js";
 
 /**
  * Parses a `Logic.is_ground` call expression.
@@ -11,8 +12,14 @@ export default (expr, context) => {
     }
     const [term] = expr.arguments;
 
-    return {
-        type: 'is_ground',
-        term: trimNode(term),
-    };
+    let negated = false
+
+    return ifExpr(`${negated ? '!' : ''}unify.isGround(${valueExpr(term, 'bindings')})`, [
+        `pc++; // is_ground is true, succeed and continue.`,
+        `// fallthrough`,
+    ], [
+        `// is_ground is false, fail this clause.`,
+        `yieldValue = { type: 'fail' };`,
+        e_else => e_else.continue(),
+    ])
 };

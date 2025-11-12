@@ -1,3 +1,6 @@
+import jsExpr from "@/lib/logic/compile/transform/exprs/js.js";
+import unifyExpr from "@/lib/logic/compile/transform/exprs/unify.js";
+
 import trimNode from "@/lib/logic/compile/transform/util/trim.js";
 import findFreeVariables from "@/lib/logic/compile/transform/util/findFreeVariables.js";
 
@@ -58,12 +61,11 @@ export default function transformAssignmentExpression(expr, context) {
             const rawString = context.getRawSource(exprNode);
 
             // 4. Return the 'js' IR op
-            return {
-                type: 'js',
+            return jsExpr({
                 target: trimNode(expr.left), // LHS of the assignment
                 rawString: rawString,
                 logicVars: logicVars, // List of logic variable names used
-            };
+            });
         }
     }
 
@@ -72,7 +74,7 @@ export default function transformAssignmentExpression(expr, context) {
         const rhsName = expr.right.name;
 
         if (rhsName === '_') {
-            return { type: 'unify', op: trimNode(expr), startLocation: context.getRawSourceLocation(expr.left.start) }; // Fall through to default unification
+            return unifyExpr({ op: trimNode(expr), startLocation: context.getRawSourceLocation(expr.left.start) }); // Fall through to default unification
         }
 
         const resolution = context.scope.resolveName(rhsName);
@@ -97,7 +99,7 @@ export default function transformAssignmentExpression(expr, context) {
 
             op.right = { type: 'Identifier', name: `${resolution.definition.mangledName}.bind(null, ${scopes})` };
 
-            return { type: 'unify', op, isRightAlreadyResolved: true, startLocation: context.getRawSourceLocation(op.left.start) };
+            return unifyExpr({ op, isRightAlreadyResolved: true, startLocation: context.getRawSourceLocation(op.left.start) });
         }
         // If resolution.type === 'variable', fall through to default unification.
     }
@@ -105,5 +107,5 @@ export default function transformAssignmentExpression(expr, context) {
     // --- Default Case: Standard Unification ---
     // Handles X=Y, X=1, X=[H|T], X={a:A}, etc.
     // No special handling needed, just pass the trimmed AST node.
-    return { type: 'unify', op: trimNode(expr), startLocation: context.getRawSourceLocation(expr.left.start) };
+    return unifyExpr({ op: trimNode(expr), startLocation: context.getRawSourceLocation(expr.left.start) });
 }

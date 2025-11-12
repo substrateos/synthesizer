@@ -1,4 +1,5 @@
 import trimNode from "@/lib/logic/compile/transform/util/trim.js";
+import negationExpr from "@/lib/logic/compile/transform/exprs/negation.js";
 
 /**
  * Analyzes a UnaryExpression to produce a 'negation' goal IR.
@@ -30,11 +31,9 @@ export default (expr, context) => {
         throw new Error(`Cannot apply negation operator (!) to a variable: ${predName}`);
     }
 
-    // 6. Return IR
-    return {
-        type: 'negation',
+    return negationExpr({
         resolverName: resolution.definition.mangledName,
         scopeDepth: resolution.scope.depth,
         goal: trimNode(goal),
-    };
+    });
 };

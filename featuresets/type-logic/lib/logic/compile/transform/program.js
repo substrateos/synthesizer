@@ -1,4 +1,5 @@
-import transformPredicate from "@/lib/logic/compile/transform/predicate.js";
+import predicateExpr from "@/lib/logic/compile/transform/exprs/predicate.js";
+import Emitter from "@/lib/logic/compile/transform/Emitter.js";
 
 /**
  * Recursively walks the scope tree and returns a flat list of Predicate IRs
@@ -9,7 +10,8 @@ import transformPredicate from "@/lib/logic/compile/transform/predicate.js";
 function extractPredicates(scope) {
     return [
         // Transform predicates declared directly in this scope
-        ...Array.from(scope.declaredPredicates.values(), predicateDef => transformPredicate(predicateDef, scope)),
+        ...Array.from(scope.declaredPredicates.values(), predicateDef => predicateExpr(predicateDef, scope)),
+
         // Recursively extract predicates from nested scopes within clauses
         ...Array.from(scope.declaredPredicates.values())
             .flatMap(predicateDef => predicateDef.clauses.flatMap(clauseInfo => extractPredicates(clauseInfo.scope))),
@@ -21,17 +23,23 @@ function extractPredicates(scope) {
  * @param {Scope} topLevelScope - The output from the analysis pass.
  * @returns {object} The final `predicates` object keyed by mangledName.
  */
-export default function transformProgram(topLevelScope) {
-    // Get the flat list of predicate IRs using the functional helper
-    const predicateIRs = extractPredicates(topLevelScope);
+export default (topLevelScope) => {
+    const resolvers = Emitter.from(extractPredicates(topLevelScope))
 
-    // Convert the list to an object keyed by mangledName
-    const predicateTable = {};
-    for (const predicateIR of predicateIRs) {
-        if (predicateTable[predicateIR.mangledName]) {
-             console.warn(`Duplicate mangledName encountered during transformProgram: ${predicateIR.mangledName}`);
-        }
-        predicateTable[predicateIR.mangledName] = predicateIR;
-    }
-    return predicateTable;
+    const databaseEntries = [...topLevelScope.declaredPredicates.values()]
+        .map(clause => `${clause.name}: ${clause.mangledName}.bind(null, null)`)
+        .join(',\n        ');
+
+    return `(function(utils) {
+    const { unify, resolverTags, resolverTag, nameTag, ArrayPattern, ObjectPattern } = utils;
+
+    ${resolvers}
+
+    // --- The Public API Object ---
+    const database = {
+        ${databaseEntries}
+    };
+
+    return database;
+})`
 }

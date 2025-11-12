@@ -1,8 +1,21 @@
-import trimNode from "@/lib/logic/compile/transform/util/trim.js";
+import AssignmentExpression from "@/lib/logic/compile/transform/nodes/AssignmentExpression.js";
+import binaryExpr from "@/lib/logic/compile/transform/exprs/binary.js"
+import CallExpression from "@/lib/logic/compile/transform/nodes/CallExpression.js";
+import clauseExpr from "@/lib/logic/compile/transform/exprs/clause.js";
 import transformAssignment from "@/lib/logic/compile/transform/nodes/AssignmentExpression.js";
-import transformExpressionStatement from "@/lib/logic/compile/transform/nodes/ExpressionStatement.js";
 import transformDebuggerStatement from "@/lib/logic/compile/transform/nodes/DebuggerStatement.js";
 import transformVariableDeclaration from "@/lib/logic/compile/transform/nodes/VariableDeclaration.js";
+import trimNode from "@/lib/logic/compile/transform/util/trim.js";
+import UnaryExpression from "@/lib/logic/compile/transform/nodes/UnaryExpression.js";
+import unify from "@/lib/logic/compile/transform/exprs/unify.js";
+
+const expressionTransformers = {
+    CallExpression,
+    AssignmentExpression,
+    UnaryExpression,
+    BinaryExpression: binaryExpr,
+    LogicalExpression: binaryExpr,
+};
 
 /**
  * Transforms default value assignments in parameters into unification goals.
@@ -15,7 +28,7 @@ const getUnificationGoals = (param, context) => {
     switch (param.type) {
         case 'AssignmentPattern': {
             const assignmentExpr = { type: 'AssignmentExpression', operator: '=', left: param.left, right: param.right };
-            const goal = transformAssignment(assignmentExpr, context); // Pass ClauseInfo as context
+            const goal = transformAssignment(assignmentExpr, context);
             return goal ? [goal] : [];
         }
         case 'ArrayPattern':
@@ -42,8 +55,10 @@ function transformRuleBody(clauseInfo) {
             case 'DebuggerStatement':
                 if (i === 0) { return [] } // handled in transformFunctionDeclaration
                 return transformDebuggerStatement(stmt, context);
-            case 'ExpressionStatement':
-                return transformExpressionStatement(stmt, context);
+            case 'ExpressionStatement': {
+                const expr = stmt.expression
+                return [expressionTransformers[expr.type]?.(expr, context)];
+            }
             case 'VariableDeclaration':
                 return transformVariableDeclaration(stmt, context);
             case 'FunctionDeclaration':
@@ -54,26 +69,24 @@ function transformRuleBody(clauseInfo) {
     });
 }
 
+
 /**
  * Transforms a ClauseInfo object (from analysis) into its final clause IR.
  * @param {ClauseInfo} clauseInfo - Contains astNode, scope, getRawSource.
  * @param {string} predicateMangledName - Mangled name of the parent predicate.
  * @returns {object} The final clause IR for the code generator.
  */
-export default function transformFunctionDeclaration(clauseInfo, predicateMangledName) {
+export default function transformFunctionDeclaration(clauseInfo) {
     const { astNode, scope } = clauseInfo;
 
-    return {
-        type: 'rule',
-        name: astNode.id.name,
+    return clauseExpr({
         declaredVars: [...scope.declaredVariables.keys()],
         body: [
             ...(clauseInfo.astNode?.body?.body?.[0]?.type === 'DebuggerStatement'
                 ? [transformDebuggerStatement(clauseInfo.astNode?.body?.body?.[0], clauseInfo)]
                 : []
             ),
-            {
-                type: 'unify',
+            unify({
                 isRightAlreadyResolved: true,
                 op: {
                     type: 'AssignmentExpression', operator: '=',
@@ -81,9 +94,9 @@ export default function transformFunctionDeclaration(clauseInfo, predicateMangle
                     right: { type: 'Identifier', name: 'goal' },
                 },
                 startLocation: clauseInfo.getRawSourceLocation(astNode.start),
-            },
+            }),
             ...astNode.params.flatMap(p => getUnificationGoals(p, clauseInfo)),
             ...transformRuleBody(clauseInfo),
         ],
-    };
+    });
 }

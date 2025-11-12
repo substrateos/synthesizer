@@ -75,7 +75,15 @@ function createConfiguredTemplateTag(baseConfig) {
         }
         const { generatedSource, utils } = compileProgram(source);
 
-        const factory = new Function(`return (${generatedSource})`);
+        let factory
+        try {
+            factory = new Function(`return (${generatedSource})`);
+        } catch (e) {
+            if (e instanceof SyntaxError) {
+                throw new SyntaxError(e.message + `\ngeneratedSource:\n${generatedSource}`)
+            }
+            throw e
+        }
         const rawDatabase = factory()(utils);
 
         const finalDatabase = {};
