@@ -9,11 +9,11 @@ export default [{
         // --- Transformation Predicates ---
         // These are the specific operations we want to apply to a list.
         function increment(N, Result) {
-            Result = Number(N + 1);
+            Result = Logic.js(N + 1);
         }
 
         function square(N, Result) {
-            Result = Number(N * N);
+            Result = Logic.js(N * N);
         }
 
         // --- The Generic map/3 Predicate ---

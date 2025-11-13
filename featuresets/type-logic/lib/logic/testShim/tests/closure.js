@@ -27,7 +27,7 @@ export default [
                         function child_returns_result(Out) {
                             // 3. READS parent's A implicitly from the closure.
                             //    WRITES the result to its own local parameter Out.
-                            Out = Number(A + 5);
+                            Out = Logic.js(A + 5);
                         }
                     }
                 `,

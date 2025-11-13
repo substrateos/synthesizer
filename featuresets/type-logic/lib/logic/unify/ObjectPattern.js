@@ -1,4 +1,5 @@
-import { unifyTag, groundTag, reprTag, symbolsTag } from "@/lib/logic/tags.js";
+import { unifyTag, groundTag, reprTag, symbolsTag, _ } from "@/lib/logic/tags.js";
+import Value from "@/lib/logic/unify/Value.js";
 
 /**
  * Returns true if value is a plain JS object.
@@ -7,7 +8,8 @@ function isPlainObject(value) {
     return typeof value === 'object' &&
         value !== null &&
         !Array.isArray(value) &&
-        !(value instanceof ObjectPattern);
+        !(value instanceof ObjectPattern) &&
+        !(value instanceof Value);
 }
 
 /**
@@ -39,6 +41,9 @@ function flattenParts(ground, parts, bindings) {
             if (typeof part === 'symbol') {
                 throw new Error(`Cannot ground ObjectPattern: spread variable '${part.description}' was bound to a non-object value.`);
             }
+            if (p instanceof Value) {
+                throw new Error(`Cannot ground ObjectPattern: Value not allowed as a pattern part.`);
+            }
         }
     }
     return { fixedProps, spreads };
@@ -65,7 +70,7 @@ function buildPatternTerm(fixedProps, spreads, isExact = false) {
         parts.push(fixedProps);
     }
     parts.push(...spreads);
-    return new ObjectPattern(parts, { isExact });
+    return ObjectPattern.from(parts, { isExact });
 }
 
 /**
@@ -82,8 +87,30 @@ function unifySpreadsAgainstNeeds(unify, spreads, needs, bindings, location) {
     // Build the simplest possible term for the spreads we have
     const spreadsTerm = buildPatternTerm({}, spreads, true);
 
+    // console.log('unifySpreadsAgainstNeeds', {needsTerm, spreadsTerm, flat_needs, unify, spreads, needs, bindings})
+
     // Unify them.
     return unify(spreadsTerm, needsTerm, bindings, location);
+}
+
+/**
+ * Checks if a set of "needed" properties can be satisfied by `undefined`.
+ * This is used when one side is CLOSED (no spread) and therefore cannot absorb extra keys.
+ * The only way it succeeds is if the extra keys are Optional Values.
+ */
+function processClosedNeeds(unify, needs, bindings, location) {
+    // If there are needed spreads, a closed object definitely fails.
+    if (needs.spreads.length > 0) return null;
+    
+    // For fixed properties, try to unify them with `undefined`.
+    // This allows `Value.optional(..., default)` to succeed.
+    for (const key in needs.fixedProps) {
+        bindings = unify(needs.fixedProps[key], undefined, bindings, location);
+        if (bindings === null) return null;
+        // If successful, remove the key from needs so we don't try to spread it later (though we won't reach spread logic anyway)
+        delete needs.fixedProps[key];
+    }
+    return bindings;
 }
 
 /**
@@ -96,8 +123,12 @@ function unifySymmetricPatterns(unify, parts1, parts2, bindings, location) {
     const p2 = flattenParts(unify.ground, parts2, bindings);
 
     const allKeys = new Set([...Object.keys(p1.fixedProps), ...Object.keys(p2.fixedProps)]);
-    const p1_needs = { fixedProps: {}, spreads: [] }; // What p1's spreads must account for
-    const p2_needs = { fixedProps: {}, spreads: [] }; // What p2's spreads must account for
+    
+    // p1_needs: What P1 lacks but P2 has.
+    const p1_needs = { fixedProps: {}, spreads: [] }; 
+    
+    // p2_needs: What P2 lacks but P1 has.
+    const p2_needs = { fixedProps: {}, spreads: [] }; 
 
     // Unify common fixed keys and sort remaining keys into 'needs'
     for (const key of allKeys) {
@@ -109,46 +140,91 @@ function unifySymmetricPatterns(unify, parts1, parts2, bindings, location) {
             bindings = unify(p1.fixedProps[key], p2.fixedProps[key], bindings, location);
             if (bindings === null) return null;
         } else if (in1 && !in2) {
-            // Key only in p1: p2's spreads must account for it
+            // P1 has it, P2 needs it
             p2_needs.fixedProps[key] = p1.fixedProps[key];
         } else if (!in1 && in2) {
-            // Key only in p2: p1's spreads must account for it
+            // P2 has it, P1 needs it
             p1_needs.fixedProps[key] = p2.fixedProps[key];
         }
     }
 
-    // Add the other pattern's spreads to our 'needs'
-    p1_needs.spreads.push(...p2.spreads);
-    p2_needs.spreads.push(...p1.spreads);
+    const hasSpreads1 = p1.spreads.length > 0;
+    const hasSpreads2 = p2.spreads.length > 0;
 
-    // Cross-unify needs vs. spreads.
-    bindings = unifySpreadsAgainstNeeds(unify, p1.spreads, p1_needs, bindings, location);
-    if (bindings === null) return null;
+    // Handle Closed Objects ("Needs" must be satisfied by Optional Defaults)
+    if (!hasSpreads1) {
+        // P1 is closed. It cannot absorb p1_needs.
+        bindings = processClosedNeeds(unify, p1_needs, bindings, location);
+        if (bindings === null) return null;
+    }
+    
+    if (!hasSpreads2) {
+        // P2 is closed. It cannot absorb p2_needs.
+        bindings = processClosedNeeds(unify, p2_needs, bindings, location);
+        if (bindings === null) return null;
+    }
 
-    // Must use the *new* bindings from the first pass
-    bindings = unifySpreadsAgainstNeeds(unify, p2.spreads, p2_needs, bindings, location);
+    // Solve for Spreads (if any exist)
+    if (hasSpreads1 && hasSpreads2) {
+        // Case A: Both are "open". Introduce Pivot.
+        const Pivot = Symbol('Pivot');
+
+        p1_needs.spreads.push(Pivot);
+        bindings = unifySpreadsAgainstNeeds(unify, p1.spreads, p1_needs, bindings, location);
+        if (bindings === null) return null;
+
+        p2_needs.spreads.push(Pivot);
+        bindings = unifySpreadsAgainstNeeds(unify, p2.spreads, p2_needs, bindings, location);
+
+    } else if (hasSpreads1) {
+        // Case B: Only P1 is open. P1 absorbs p1_needs.
+        // Note: p2_needs must be empty here because we processed it in step 2.
+        // If p2_needs had leftovers, processClosedNeeds would have failed or cleared them.
+        
+        // p1_needs absorbs P2's spreads (which should be empty if hasSpreads2 is false, but consistent logic)
+        p1_needs.spreads.push(...p2.spreads);
+        bindings = unifySpreadsAgainstNeeds(unify, p1.spreads, p1_needs, bindings, location);
+
+    } else if (hasSpreads2) {
+        // Case C: Only P2 is open.
+        p2_needs.spreads.push(...p1.spreads);
+        bindings = unifySpreadsAgainstNeeds(unify, p2.spreads, p2_needs, bindings, location);
+    } 
+    // Case D: Both closed. We already handled validation in Step 2.
+    // If we are here, bindings is valid.
+
     return bindings;
 }
 
 class ObjectPattern {
+    static from(parts, options) {
+        if (parts.length === 1) {
+            const part = parts[0]
+            if (typeof part === 'symbol' || (options?.isExact && !Object.values(part).some(part => part instanceof Value))) {
+                return part
+            }
+        }
+
+        if (!options?.isExact && !parts.some(part => typeof part === 'symbol')) {
+            // if ObjectPattern isn't exact, add an anonymous spread.
+            // console.log('adding anonymous spread')
+            parts = [...parts, _]
+        }
+
+        return new ObjectPattern(parts)
+    }
+
     /**
      * @param {Array<object|Symbol>} parts - An ordered list of pattern parts,
      * e.g., [ {a: 1}, Symbol('R'), {c: 3} ]
-     * @param {object} options - Configuration options
-     * @param {boolean} options.isExact - If true, requires an exact key match (no extra keys).
      */
-    constructor(parts, { isExact = false } = {}) {
+    constructor(parts) {
         this.parts = parts || [];
-        this.isExact = isExact;
     }
 
     *[symbolsTag](symbols) {
         for (const part of this.parts) {
-            if (typeof part === 'symbol') {
-                yield part;
-            } else {
-                yield* symbols(part);
-            }
+            yield* symbols(part);
         }
     }
 
@@ -167,11 +243,15 @@ class ObjectPattern {
         return `{${partsStr}}`;
     }
 
-    [unifyTag](unify, value, bindings, location) {
+    [unifyTag](unify, otherBinding, bindings, location, selfBinding) {
+        const value = otherBinding.value
+        if (typeof value === 'symbol') {
+            bindings = unify.bind(otherBinding, selfBinding, bindings, location)
+            if (bindings === null) return null;
+        }
+
         // Pattern-vs-Pattern Unification
         if (value instanceof ObjectPattern) {
-            // This still uses the symmetric helper, which is complex
-            // but necessary for pattern-vs-pattern.
             return unifySymmetricPatterns(unify, this.parts, value.parts, bindings, location);
         }
 
@@ -195,17 +275,29 @@ class ObjectPattern {
 
             // Unify Fixed Keys
             for (const key in fixedProps) {
+                const patternValue = fixedProps[key];
                 if (!Object.hasOwn(fixedValue, key)) {
-                    return null; // Key required by pattern is missing from value
+                    // Key is missing. Check if the pattern part is a Value.
+                    const { value: resolvedPatternV } = unify.resolve(patternValue, bindings);
+                    if (resolvedPatternV instanceof Value) {
+                        // It's a Value, so it can handle being missing.
+                        bindings = unify(resolvedPatternV, undefined, bindings, location);
+                        if (bindings === null) return null;
+                    } else {
+                        // Not a Value instance. This is a hard failure.
+                        return null;
+                    }
+                } else {
+                    // Key exists. Unify normally.
+                    bindings = unify(patternValue, fixedValue[key], bindings, location);
+                    if (bindings === null) return null;
                 }
-                bindings = unify(fixedProps[key], fixedValue[key], bindings, location);
-                if (bindings === null) return null;
             }
 
             // Unify Spreads Deterministically
             if (spreads.length === 0) {
-                // No spreads. Fail if 'isExact' and there are leftovers.
-                if (this.isExact && Object.keys(restValue).length > 0) {
+                // No spreads. Fail if there are leftovers.
+                if (Object.keys(restValue).length > 0) {
                     return null;
                 }
             } else if (spreads.length === 1) {
@@ -222,6 +314,10 @@ class ObjectPattern {
             }
 
             return bindings; // Success
+        }
+
+        if (typeof value === 'symbol') {
+            return unify.walk(this.parts, bindings, location)
         }
 
         return null; // Fail

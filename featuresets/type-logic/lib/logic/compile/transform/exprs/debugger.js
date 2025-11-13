@@ -1,4 +1,4 @@
-export default function transformDebuggerStatement(stmt, context) {
+export default function(stmt, context) {
     return [
         'debugger;',
         'pc++;',

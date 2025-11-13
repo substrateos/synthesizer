@@ -1,12 +1,13 @@
-export const predicatesTag = '$predicates';
-export const resolverTag = '$resolver';
-export const configTag = '$config';
-export const nameTag = '$name';
-export const generatedSourceTag = '$generatedSource';
-export const reprTag = '$repr';
-export const unifyTag = '$unify';
-export const groundTag = '$ground';
-export const symbolsTag = '$symbols';
+export const predicatesTag = Symbol('predicates');
+export const resolverTag = Symbol('resolver');
+export const configTag = Symbol('config');
+export const nameTag = Symbol('name');
+export const generatedSourceTag = Symbol('generatedSource');
+export const reprTag = Symbol('repr');
+export const unifyTag = Symbol('unify');
+export const groundTag = Symbol('ground');
+export const symbolsTag = Symbol('symbols');
+export const _ = Symbol('_');
 
 export const resolverTags = [
     predicatesTag,

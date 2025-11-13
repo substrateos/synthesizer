@@ -1,4 +1,21 @@
 import { unifyTag, groundTag, reprTag, symbolsTag } from "@/lib/logic/tags.js";
+import Value from "@/lib/logic/unify/Value.js";
+
+/**
+ * Calculates the minimum length of a concrete array,
+ * ignoring any contiguous optional Value instances at the end.
+ */
+function getArrayMinLength(arr) {
+    let minLen = arr.length;
+    for (let i = arr.length - 1; i >= 0; i--) {
+        if (Value.isOptional(arr[i])) {
+            minLen--;
+        } else {
+            break; // Stop at first non-default
+        }
+    }
+    return minLen;
+}
 
 /**
  * Calculates the minimum required length for a pattern.
@@ -11,7 +28,9 @@ function getMinLength(unify, term, bindings) {
     // Resolve the term in case it's a variable bound to a concrete array
     const resolved = unify.resolve(term, bindings).value;
 
-    if (Array.isArray(resolved)) return resolved.length;
+    if (Array.isArray(resolved)) {
+        return getArrayMinLength(resolved);
+    }
 
     if (resolved instanceof ArrayPattern) {
         return resolved.parts.reduce((acc, part) => {
@@ -40,18 +59,31 @@ function unifyAgainstArray(unify, parts, value, bindings, location) {
 
     // Case: Head is a fixed array, e.g., [1, ...X]
     if (Array.isArray(p_head)) {
-        if (value.length < p_head.length) return null; // Not enough elements
+        const minLen = getArrayMinLength(p_head);
+
+        if (value.length < minLen) return null; // Not enough elements
+
+        let valueToUnify = value; 
+        if (p_head.length > valueToUnify.length) {
+            // Create a padded version of the value for unification
+            valueToUnify = [...valueToUnify];
+            while (valueToUnify.length < p_head.length) {
+                valueToUnify.push(undefined);
+            }
+        }
 
         // Unify the fixed head part
         for (let i = 0; i < p_head.length; i++) {
-            bindings = unify(p_head[i], value[i], bindings, location);
+            bindings = unify(p_head[i], valueToUnify[i], bindings, location);
             if (bindings === null) return null;
         }
 
-        // Recursively unify the rest of the parts with the rest of the array
-        // We must re-wrap the restParts into a term for the next unify call.
+        // Determine how many elements were *actually* consumed from the original value
+        const consumedLength = Math.min(value.length, p_head.length);
+
+        // Recursively unify the rest
         const tailTerm = ArrayPattern.from(restParts);
-        return unify(tailTerm, value.slice(p_head.length), bindings, location);
+        return unify(tailTerm, value.slice(consumedLength), bindings, location);
     }
 
     // Case: Head is a spread variable, e.g., [...X, 1]
@@ -122,7 +154,10 @@ class ArrayPattern {
         if (!parts || parts.length === 0) return [];
 
         if (parts.length === 1) {
-            return parts[0];
+            const part = parts[0]
+            if (!Array.isArray(part) || !part.some(e => Value.isOptional(e))) {
+                return part;
+            }
         }
         // Otherwise, we need a pattern instance to handle the logic.
         return new this(...parts);
@@ -144,13 +179,8 @@ class ArrayPattern {
     }
 
     *[symbolsTag](symbols) {
-        // Use this.parts directly, not the generator
         for (const part of this.parts) {
-            if (typeof part === 'symbol') {
-                yield part;
-            } else {
-                yield* symbols(part); // 'part' is a fixed array or nested pattern
-            }
+            yield* symbols(part);
         }
     }
 
@@ -163,7 +193,13 @@ class ArrayPattern {
         }).flat().join(", ")}]`
     }
 
-    [unifyTag](unify, value, bindings, location) {
+    [unifyTag](unify, otherBinding, bindings, location, selfBinding) {
+        const value = otherBinding.value
+        if (typeof value === 'symbol') {
+            bindings = unify.bind(otherBinding, selfBinding, bindings, location)
+            if (bindings === null) return null;
+        }
+
         // Pattern-vs-Pattern Unification
         if (value instanceof ArrayPattern) {
             // Attempt to ground the 'value' pattern using the current bindings.
@@ -197,6 +233,10 @@ class ArrayPattern {
         if (Array.isArray(value)) {
             // Call the recursive helper with our parts list.
             return unifyAgainstArray(unify, this.parts, value, bindings, location);
+        }
+
+        if (typeof value === 'symbol') {
+            return unify.walk(this.parts, bindings, location)
         }
 
         // Value is not a pattern, not an array, and not a variable. Fail.

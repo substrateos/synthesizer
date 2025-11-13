@@ -1,20 +1,20 @@
-import trimNode from "@/lib/logic/compile/transform/util/trim.js";
 import negationExpr from "@/lib/logic/compile/transform/exprs/negation.js";
 
 /**
  * Analyzes a UnaryExpression to produce a 'negation' goal IR.
- * @param {object} expr - The UnaryExpression AST node.
+ * @param {function} transformExpression - The dependency-injected main expression transformer.
+ * @param {object} node - The UnaryExpression AST node.
  * @param {ClauseInfo} context - The transformation context containing { scope, ... }.
  * @returns {object|null} A 'negation' instruction for the IR, or null if not applicable.
  */
-export default (expr, context) => {
+export default (transformExpression, node, context) => {
     // Check Operator
-    if (expr.operator !== '!') {
+    if (node.operator !== '!') {
         return null;
     }
 
     // Check Argument Type
-    const goal = expr.argument;
+    const goal = node.argument;
     if (goal.type !== 'CallExpression' || goal.callee.type !== 'Identifier') {
         throw new Error('Negation operator (!) can only be applied directly to a simple predicate call (e.g., !myPred(X)).');
     }
@@ -34,6 +34,6 @@ export default (expr, context) => {
     return negationExpr({
         resolverName: resolution.definition.mangledName,
         scopeDepth: resolution.scope.depth,
-        goal: trimNode(goal),
+        goal: goal.arguments.map(argNode => transformExpression(argNode, context)),
     });
 };

@@ -12,7 +12,7 @@ export default [{
             var A = 10;
         
             function local_add(X, Y) {
-                Y = Number(X + A); // This 'A' must be 10.
+                Y = Logic.js(X + A); // This 'A' must be 10.
             }
             
             // Assign the predicate to the output variable P.

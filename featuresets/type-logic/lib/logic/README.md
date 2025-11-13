@@ -25,7 +25,9 @@ This language is a hybrid that combines the declarative power of logic programmi
 
 ### Deep JS Syntax Integration
 
-  * **Native Data Types**: Unification works seamlessly with JavaScript primitives (strings, numbers, booleans) and structures (arrays, objects).
+  * **Native Data Types**: Unification works seamlessly with JavaScript primitives and structures.
+    * **Strict Structure**: Plain Arrays and Objects are treated as **strict data structures**. Unification **fails** if an object has extra/missing keys or if arrays have different lengths.
+    * **Partial Matching**: To match a subset of properties or the head of a list, you must use **Destructuring Syntax** (e.g., `{a, ...R}` or `[H, ...T]`), which compiles to flexible patterns.
   * **Destructuring**:
     * **Rule Heads (LHS):** Use standard JavaScript destructuring patterns directly in rule heads (`function rule([H,...T], {a, b: B, ...R})`). Syntax strictly follows JavaScript rules: the **rest element (`...`) must be the *last*** element/property.
     * **Rule Bodies (RHS Assignments):** Full JavaScript **spread syntax is supported** for constructing arrays and objects within assignments (`Result = [A, ...Mid, Z]`, `Result = {...Defaults, ...Overrides}`). Multiple spreads in any position are allowed.
@@ -44,6 +46,7 @@ This language is a hybrid that combines the declarative power of logic programmi
 
   * **Negation as Failure (`!`)**: The `!` operator can be used on a subgoal. The goal succeeds only if the negated sub-goal fails to find any solutions.
   * **`Logic.js()`**: Evaluate arbitrary JavaScript expressions within a rule body, resolving logic variables before execution. In logic.solveAsync, this built-in can transparently handle expressions that return a Promise.
+  * **`Logic.optional(Default)`**: Used within assignment or destructuring to provide a "soft" default value. It unifies with the input if present (ignoring the default), or binds to the `Default` if the input is `undefined`.
   * **`Logic.is_ground`**: Succeeds if the given term contains no unbound logic variables.
   * **`Logic.findall`**: A built-in predicate to collect all solutions for a sub-goal into a single list.
 
@@ -183,6 +186,35 @@ let alyssa = { id: 101, name: 'Alyssa P. Hacker', major: 'EECS' };
 let { N } = logic.vars();
 console.log([...get_name(alyssa, N)]);
 //> [ { N: 'Alyssa P. Hacker' } ]
+```
+
+#### 3a. Strict Data vs. Flexible Patterns
+
+It is important to distinguish between **Data** (Plain Objects) and **Patterns** (Destructuring).
+
+```javascript
+let { strict_student, flexible_student } = logic.solve`
+    // 1. Plain Object: Strict. Must match the structure EXACTLY.
+    //    This expects an object with ONLY id and name.
+    function strict_student(S) {
+        S = { id: 101, name: 'Alyssa P. Hacker' };
+    }
+
+    // 2. Destructuring: Flexible. Matches if 'name' is present.
+    //    This ignores any other properties (like 'major' or 'id').
+    function flexible_student({name: 'Alyssa P. Hacker', ..._}) {}
+`;
+
+// Our actual data has an extra property: 'major'.
+let alyssa = { id: 101, name: 'Alyssa P. Hacker', major: 'EECS' };
+
+// Strict: Fails because 'major' is extra in the data.
+console.log([...strict_student(alyssa)]);
+//> []
+
+// Flexible: Succeeds. It checks 'name' and ignores 'id' and 'major'.
+console.log([...flexible_student(alyssa)]);
+//> [ {} ]
 ```
 
 #### 4. Comparison
@@ -534,3 +566,53 @@ This works because:
 
 1.  The syntax `[H=Item, ..._]` is valid JavaScript. `H` is a new, unique variable.
 2.  The default value assignment (`H=Item`) is automatically compiled into a unification goal: `H = Item`.
+
+### A Note on Default Values: `X = 10` vs. `X = Logic.optional(10)`
+
+It is critical to distinguish between a standard JavaScript default and a `Logic.optional()` wrapper.
+
+1.  **Standard Default (`= 10`):** This is compiled into a **hard unification goal**. It acts as an *assertion* and will **fail** if the value is missing.
+2.  **`Logic.optional()`:** This is compiled into a **conditional goal**. It only binds the value if the variable is *unbound or `undefined`*.
+
+This difference is most important for destructuring, where a missing key or array element will bind `undefined`.
+
+#### Example 1: Object Destructuring
+
+* **Standard Default (Fails):**
+    The engine tries to match `{a: a}` against `{}`. This binds `a` to `undefined`. The subsequent goal `a = 10` then fails because `undefined !== 10`.
+    ```javascript
+    function test_fail({a = 10}, R=a) {}
+    let { V } = logic.vars();
+    [...test_fail({}, V)] //> [] (Fails)
+    ```
+
+* **`Logic.optional` (Succeeds):**
+    The engine binds `a` to `undefined`. The subsequent goal `a = Logic.optional(10)` sees `a` is `undefined` and correctly binds `a = 10`.
+    ```javascript
+    function test_ok({a = Logic.optional(10)}, R=a) {}
+    let { V } = logic.vars();
+    [...test_ok({}, V)] //> [ { V: 10 } ]
+    ```
+
+#### Example 2: Array Destructuring
+
+* **Standard Default (Fails):**
+    The engine tries to match `[A]` against `[]`. This binds `A` to `undefined`. The goal `A = 10` then fails.
+    ```javascript
+    function test_fail([A = 10], R=A) {}
+    let { V } = logic.vars();
+    [...test_fail([], V)] //> [] (Fails)
+    ```
+
+* **`Logic.optional` (Succeeds):**
+    The engine binds `A` to `undefined`. The goal `A = Logic.optional(10)` sees `A` is `undefined` and correctly binds `A = 10`.
+    ```javascript
+    function test_ok([A = Logic.optional(10)], R=A) {}
+    let { V } = logic.vars();
+    [...test_ok([], V)] //> [ { V: 10 } ]
+    ```
+
+> **Rule of Thumb:**
+>
+> * Use `X = <value>` for **unification and assertion**.
+> * Use `X = Logic.optional(<value>)` for **optional parameters** and **destructuring with missing values**.

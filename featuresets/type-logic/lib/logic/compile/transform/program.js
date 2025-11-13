@@ -31,7 +31,7 @@ export default (topLevelScope) => {
         .join(',\n        ');
 
     return `(function(utils) {
-    const { unify, resolverTags, resolverTag, nameTag, ArrayPattern, ObjectPattern } = utils;
+    const { unify, resolverTags, resolverTag, nameTag, ArrayPattern, ObjectPattern, Value, _ } = utils;
 
     ${resolvers}
 

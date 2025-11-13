@@ -1,4 +1,6 @@
-import { predicatesTag, generatedSourceTag } from "@/lib/logic/tags.js";
+import { generatedSourceTag } from "@/lib/logic/tags.js";
+import ArrayPattern from "@/lib/logic/unify/ArrayPattern.js";
+import ObjectPattern from "@/lib/logic/unify/ObjectPattern.js";
 
 import logic from "@/lib/logic/logic.js"
 
@@ -27,6 +29,12 @@ function serialize(data) {
     }
     if (Array.isArray(data)) {
         return data.map(serialize);
+    }
+    if (data instanceof ArrayPattern) {
+        return { '$class': 'ArrayPattern', 'args': data.parts.map(serialize) };
+    }
+    if (data instanceof ObjectPattern) {
+        return { '$class': 'ObjectPattern', 'args': data.parts.map(serialize) };
     }
     const newObj = {};
     for (const key of Reflect.ownKeys(data)) {

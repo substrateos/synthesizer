@@ -1,6 +1,6 @@
-import transformFunctionDeclaration from "@/lib/logic/compile/transform/nodes/FunctionDeclaration.js";
+import transformFunctionDeclaration from "@/lib/logic/compile/transform/nodes/statements/FunctionDeclaration.js";
 import clauseExpr from "@/lib/logic/compile/transform/exprs/clause.js";
-import subgoalExpr from "@/lib/logic/compile/transform/exprs/subgoal.js";
+import callExpr from "@/lib/logic/compile/transform/exprs/call.js";
 import blockExpr from "@/lib/logic/compile/transform/exprs/block.js";
 import switchExpr from "@/lib/logic/compile/transform/exprs/switch.js";
 import iifeExpr from "@/lib/logic/compile/transform/exprs/iife.js";
@@ -20,11 +20,11 @@ export default function transformPredicate(predicateDef) {
             ? [[predicateDef.clauses.length, clauseExpr({
                 declaredVars: [],
                 body: [
-                    subgoalExpr({
-                        resolverName: predicateDef.shadows, // Mangled name of the predicate we fall back TO
-                        isLexicalChild: false, // Not a lexically nested call relative to the inner definition
-                        goalArgs: 'goal', // Special instruction to pass original arguments
-                        call: {}, // Dummy AST node for signature matching
+                    callExpr({
+                        // Mangled name of the predicate we fall back TO
+                        resolverExpr: `${predicateDef.shadows}.bind(null, null)`,
+                        // Pass original goal arguments
+                        argsExpr: 'goal',
                     }),
                 ],
             })]]

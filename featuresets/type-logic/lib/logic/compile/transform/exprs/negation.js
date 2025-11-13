@@ -13,7 +13,7 @@ export default ({ goal, resolverName, scopeDepth }) => {
         ? 'null' // Global predicates get null scope
         : `scopes.length === ${scopeDepth - 1} ? [...scopes, {vars, bindings}] : scopes.slice(0, ${scopeDepth + 1})`;
 
-    const goalArgsCode = `[${goal.arguments.map(node => valueExpr(node, 'bindings')).join(', ')}]`;
+    const goalArgsCode = `[${goal.map(argExpr => valueExpr(argExpr, 'bindings')).join(', ')}]`;
 
     return switchExpr('oppc', [
         ['undefined',

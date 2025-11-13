@@ -1,8 +1,9 @@
 import createVars from "@/lib/logic/vars.js";
 import unify from "@/lib/logic/unify.js";
-import {unifyTag} from "@/lib/logic/tags.js";
+import { unifyTag } from "@/lib/logic/tags.js";
 import ArrayPattern from "@/lib/logic/unify/ArrayPattern.js";
 import ObjectPattern from "@/lib/logic/unify/ObjectPattern.js";
+import Value from "@/lib/logic/unify/Value.js";
 
 // This helper is now passed the library to properly serialize constraints.
 function serialize(data, library) {
@@ -14,7 +15,27 @@ function serialize(data, library) {
     if (Array.isArray(data)) {
         return data.map(item => serialize(item, library));
     }
-
+    if (data instanceof Value) {
+        const key = data.isOptional ? '$optional' : '$required';
+        return { [key]: [data.left, data.right].map(serialize) };
+    }
+    if (data instanceof ArrayPattern) {
+        return { '$class': 'ArrayPattern', 'args': data.parts.map(serialize) };
+    }
+    if (data instanceof ObjectPattern) {
+        return { '$class': 'ObjectPattern', 'args': data.parts.map(serialize) };
+    }
+    if (data instanceof ObjectPattern) {
+        // Serialize 'isExact' only if it's true
+        const serialized = {
+            '$class': 'ObjectPattern',
+            'args': data.parts.map(serialize)
+        };
+        if (data.isExact) {
+            serialized.isExact = true;
+        }
+        return serialized;
+    }
     // Check if this object is a custom unifier/constraint.
     if (data[unifyTag] && library?.constraints) {
         for (const name in library.constraints) {
@@ -36,6 +57,9 @@ function serialize(data, library) {
 // This helper is now passed the full library for consistency.
 function deserialize(data, library) {
     const { vars, classes, constraints } = library;
+    if (data === undefined) {
+        return data
+    }
     if (Array.isArray(data)) {
         return data.map(el => deserialize(el, library));
     }
@@ -46,14 +70,21 @@ function deserialize(data, library) {
             if (!Cls) throw new Error(`Unknown class: ${data['$class']}`);
             return new Cls(...deserialize(data.args || [], library));
         }
+        if (data['$optional']) {
+            return Value.optional(...deserialize(data['$optional'], library));
+        }
+        if (data['$required']) {
+            return Value.required(...deserialize(data['$required'], library));
+        }
+
         if (data['$constraint']) {
             if (!constraints[data['$constraint']]) throw new Error(`Unknown constraint: ${data['$constraint']}`);
             // We need to create a new instance of the constraint object
             // and deserialize its properties to handle nested variables correctly.
             const constraintTemplate = constraints[data['$constraint']];
             const newConstraint = { ...constraintTemplate };
-            for(const key in newConstraint) {
-                if(Object.hasOwn(newConstraint, key)) {
+            for (const key in newConstraint) {
+                if (Object.hasOwn(newConstraint, key)) {
                     newConstraint[key] = deserialize(newConstraint[key], library);
                 }
             }
@@ -82,14 +113,18 @@ export function run({ vars, classes, constraints, term1, term2, bindings, locati
             liveBindings[vars[key]] = deserialize(bindings[key], library);
         }
     }
-    
+
+    const liveTerm1 = deserialize(term1, library)
+    const liveTerm2 = deserialize(term2, library)
+    const liveLocation = deserialize(location, library)
+
     const result = unify(
-        deserialize(term1, library),
-        deserialize(term2, library),
+        liveTerm1,
+        liveTerm2,
         liveBindings,
-        deserialize(location, library)
+        liveLocation,
     );
-    
+
     return serialize(result, library);
 }
 
@@ -109,7 +144,8 @@ export default function ({ term1, term2, bindings, location }) {
         constraints: {
             isPositive: {
                 description: "must be a positive number",
-                [unifyTag]: function (unify, value, bindings) {
+                [unifyTag]: function (unify, otherBinding, bindings, location, selfBinding) {
+                    const value = otherBinding.value
                     if (typeof value === 'number' && value > 0) {
                         return bindings;
                     }
@@ -119,7 +155,8 @@ export default function ({ term1, term2, bindings, location }) {
             // A simple pattern that destructures an array into H
             deconstructsArray: {
                 H: { '$var': 'H' },
-                [unifyTag]: function(unify, value, bindings, location) {
+                [unifyTag]: function (unify, otherBinding, bindings, location, selfBinding) {
+                    const value = otherBinding.value
                     if (!Array.isArray(value) || value.length === 0) return null;
                     return unify(this.H, value[0], bindings, location);
                 }

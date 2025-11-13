@@ -16,7 +16,7 @@ function member(g='b', m=3) {}
 // Rule
 function find_all_members(Group, Members) {
     var X;
-    Logic.findall(X, member(Group, X), Members);
+    Members = Logic.findall(X, member(Group, X));
 }
                 `,
                 "queries": {
@@ -67,10 +67,9 @@ function find_all_members(Group, Members) {
                 var ID, Title; // Template variables
                 
                 // Logic.findall(Template, Goal, ResultList)
-                Logic.findall(
+                Catalog = Logic.findall(
                     {id: ID, title: Title},
                     course(ID, Title, _),
-                    Catalog
                 );
             }
             `,

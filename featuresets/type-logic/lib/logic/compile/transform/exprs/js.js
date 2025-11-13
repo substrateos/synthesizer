@@ -3,16 +3,15 @@ import groundExpr from "@/lib/logic/compile/transform/exprs/ground.js";
 import switchExpr from "@/lib/logic/compile/transform/exprs/switch.js";
 
 export default ({ target, rawString, logicVars }) => {
+  const logicVarNames = [...logicVars.keys()]
   // Get the list of argument *values* to pass to the IIFE
-  const resolvedArgValues = logicVars.map(varName =>
-    groundExpr({ type: 'Identifier', name: varName }, 'bindings')
-  );
+  const resolvedArgValues = logicVarNames.map(name => groundExpr(logicVars.get(name), 'bindings'));
 
   // Use the raw string directly as the IIFE body
   const iifeBody = rawString;
 
   // Use the logicVars list directly as the IIFE parameter names
-  const iifeParamNames = logicVars.join(', ');
+  const iifeParamNames = logicVarNames.join(', ');
 
   return [
     'let value',

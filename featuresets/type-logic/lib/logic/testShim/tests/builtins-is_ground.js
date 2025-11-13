@@ -7,7 +7,12 @@ export default [{
   "params": [{
     "source": `
         function check_ground(Term) {
-          Logic.is_ground(Term);
+          var g = Logic.is_ground(Term);
+          g === true;
+        }
+        function check_not_ground(Term) {
+          var g = Logic.is_ground(Term);
+          g === false;
         }
       `,
     "queries": {
@@ -20,7 +25,10 @@ export default [{
       "Ground_Obj": { "check_ground": [{ "a": 1, "b": [2] }] },
       "Fail_Ground_Var": { "check_ground": [{ "$var": "X" }] },
       "Fail_Ground_List": { "check_ground": [[{ "$var": "Y" }]] },
-      "Fail_Ground_Obj": { "check_ground": [{ "a": { "$var": "Z" } }] }
+      "Fail_Ground_Obj": { "check_ground": [{ "a": { "$var": "Z" } }] },
+      "NotGround_Var": { "check_not_ground": [{"$var": "X"}] },
+      "NotGround_List": { "check_not_ground": [[1, {"$var": "Y"}]] },
+      "NotGround_Obj": { "check_not_ground": [{"key": {"$var": "Z"}}] }
     }
   }],
   "debugKeys": [
@@ -38,6 +46,11 @@ export default [{
       "Ground_List": [{}],
       "Ground_Empty_Obj": [{}],
       "Ground_Obj": [{}],
+      // Should succeed once (empty solution) if NOT ground, fail (empty list) otherwise
+      "NotGround_Var": [{X: {$var: 'X'}}],
+      "NotGround_List": [{Y: {$var: 'Y'}}],
+      "NotGround_Obj": [{Z: {$var: 'Z'}}],
+      // Tests for unground terms in check_ground (should fail)
       "Fail_Ground_Var": [],
       "Fail_Ground_List": [],
       "Fail_Ground_Obj": [],

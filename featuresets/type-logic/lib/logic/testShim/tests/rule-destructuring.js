@@ -74,5 +74,186 @@ export default [
         "Object: Fail to match a different object": []
       },
     }
+  },
+  {
+    "description": "Test object destructuring with missing properties",
+    "params": [{
+      "source": `
+  // Rule head destructuring
+  function match_obj({a, b}) {}
+  
+  // Rule body destructuring
+  function match_obj_body(V) {
+    var {a, b} = V;
+  }
+  
+  // Rule head with rest (should still fail if 'b' is missing)
+  function match_obj_rest({a, b, ...R}) {}
+          `,
+      "queries": {
+        "Head: Fails on missing prop": {
+          "match_obj": [{ "a": 1 }]
+        },
+        "Head: Succeeds on full props": {
+          "match_obj": [{ "a": 1, "b": 2 }]
+        },
+        "Body: Fails on missing prop": {
+          "match_obj_body": [{ "a": 1 }]
+        },
+        "Rest: Fails on missing fixed prop": {
+          "match_obj_rest": [{ "a": 1, "c": 3 }]
+        }
+      }
+    }],
+    "debugKeys": ["generatedSource", "traces"],
+    "returns": {
+      "solutions": {
+        "Head: Fails on missing prop": [],
+        "Head: Succeeds on full props": [{}],
+        "Body: Fails on missing prop": [],
+        "Rest: Fails on missing fixed prop": []
+      }
+    }
+  },
+  {
+    "description": "Test array destructuring with missing parameters (length mismatch)",
+    "params": [{
+      "source": `
+  // Rule head destructuring
+  function match_arr([A, B, C]) {}
+  
+  // Rule body destructuring
+  function match_arr_body(V) {
+    var [A, B, C] = V;
+  }
+  
+  // Rule head with rest
+  function match_arr_rest([A, B, ...R]) {}
+          `,
+      "queries": {
+        "Head: Fails on missing param": {
+          "match_arr": [[1, 2]]
+        },
+        "Head: Succeeds on full params": {
+          "match_arr": [[1, 2, 3]]
+        },
+        "Body: Fails on missing param": {
+          "match_arr_body": [[1, 2]]
+        },
+        "Head: Fails on empty list for fixed param": {
+          "match_arr": [[]]
+        },
+        "Head (Rest): Fails on missing fixed param": {
+          "match_arr_rest": [[1]]
+        }
+      }
+    }],
+    "debugKeys": ["generatedSource", "traces"],
+    "returns": {
+      "solutions": {
+        "Head: Fails on missing param": [],
+        "Head: Succeeds on full params": [
+          {}
+        ],
+        "Body: Fails on missing param": [],
+        "Head: Fails on empty list for fixed param": [],
+        "Head (Rest): Fails on missing fixed param": []
+      }
+    }
+  },
+  {
+    "description": "Test object destructuring succeeds with Logic.optional",
+    "params": [{
+      "source": `
+  // Rule head: 'b' is missing, but default is provided
+  function match_obj_head({a, b = Logic.optional(99)}) {}
+      `,
+      "queries": {
+        "Head: Succeeds on missing prop w/ default": {
+          "match_obj_head": [{ "a": 1 }]
+        },
+      }
+    }],
+    "debugKeys": ["generatedSource", "traces"],
+    "returns": {
+      "solutions": {
+        "Head: Succeeds on missing prop w/ default": [{}],
+      }
+    }
+  },
+  {
+    "description": "Test object destructuring succeeds with Logic.optional",
+    "params": [{
+      "source": `
+  // Rule head: 'b' exists, default should be ignored
+  function match_obj_head_exists({a, b = Logic.optional(99)}) {}
+      `,
+      "queries": {
+        "Head: Succeeds on existing prop (default ignored)": {
+          "match_obj_head_exists": [{ "a": 1, "b": 2 }]
+        },
+      }
+    }],
+    "debugKeys": ["generatedSource", "traces"],
+    "returns": {
+      "solutions": {
+        "Head: Succeeds on existing prop (default ignored)": [{}],
+      }
+    }
+  },
+  {
+    "description": "Test object destructuring succeeds with Logic.optional",
+    "params": [{
+      "source": `
+  // Rule body: 'b' is missing, but default is provided
+  function match_obj_body(V) {
+    var {a, b = Logic.optional(99)} = V;
+  }
+      `,
+      "queries": {
+        "Body: Succeeds on missing prop w/ default": {
+          "match_obj_body": [{ "a": 1 }]
+        }
+      }
+    }],
+    "debugKeys": ["generatedSource", "traces"],
+    "returns": {
+      "solutions": {
+        "Body: Succeeds on missing prop w/ default": [{}]
+      }
+    }
+  },
+  {
+    "description": "Test array destructuring with Logic.optional",
+    "params": [{
+      "source": `
+  // Rule head: Length mismatch. This SHOULD FAIL because the
+  // underlying array unification fails on length before
+  // default values are ever considered.
+  function match_arr_head([A, B, C = Logic.optional(99)]) {}
+  
+  // Rule body: Length mismatch. This SHOULD SUCCEED.
+  // JS destructuring pads with 'undefined', which our
+  // DefaultValue unifier should correctly intercept.
+  function match_arr_body(V) {
+    var [A, B, C = Logic.optional(99)] = V;
+  }
+      `,
+      "queries": {
+        "Head: Succeeds on length mismatch w/ default": {
+          "match_arr_head": [[1, 2]]
+        },
+        "Body: Succeeds on length mismatch w/ default": {
+          "match_arr_body": [[1, 2]]
+        }
+      }
+    }],
+    "debugKeys": ["generatedSource", "traces"],
+    "returns": {
+      "solutions": {
+        "Head: Succeeds on length mismatch w/ default": [{}],
+        "Body: Succeeds on length mismatch w/ default": [{}]
+      }
+    }
   }
 ]

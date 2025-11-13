@@ -48,7 +48,7 @@ export default [
           "  CALL: (2) data(X)",
           "  EXIT: (2) data(X = \"a\")",
           "  CALL: (3) check(\"a\")",
-          "  FAIL: (3) check(\"a\") @ line 6, column 23",
+          "  FAIL: (3) check(\"a\") @ line 6, column 8",
           "  REDO: (2) data(X = \"a\")",
           "  EXIT: (2) data(X = \"b\")",
           "  CALL: (4) check(\"b\")",
@@ -56,7 +56,7 @@ export default [
           "EXIT: (1) test_trace(X = \"b\")",
           "REDO: (1) test_trace(X = \"b\")",
           "  REDO: (4) check(\"b\")",
-          "  FAIL: (4) check(\"b\") @ line 6, column 23",
+          "  FAIL: (4) check(\"b\") @ line 6, column 8",
           "FAIL: (1) test_trace(X) @ line 10, column 12"
         ]
       }

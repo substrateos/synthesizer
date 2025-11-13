@@ -4,16 +4,21 @@ import switchExpr from "@/lib/logic/compile/transform/exprs/switch.js";
 
 /**
  * Parses a `Logic.findall` call expression.
- * @param {object} expr - The CallExpression AST node.
+ * @param {function} transformExpression - The dependency-injected main expression transformer.
+ * @param {object} node - The CallExpression AST node.
  * @param {ClauseInfo} context - The transformation context containing { scope, ... }.
  * @returns {object} A 'findall' instruction for the IR.
  */
-export default (expr, context) => {
-    // Validate arguments
-    if (expr.arguments.length !== 3) {
-        throw new Error('Logic.findall requires exactly 3 arguments: Template, Goal, and List.');
+export default (transformExpression, node, context) => {
+    if (!context.lhs) {
+        throw new Error("Logic.findall() can only be used on the right-hand side of an assignment (e.g., Result = Logic.findall(...)).");
     }
-    const [template, call, target] = expr.arguments;
+
+    // Validate arguments
+    if (node.arguments.length !== 2) {
+        throw new Error('Logic.findall requires exactly 2 arguments: Template, Goal.');
+    }
+    const [template, call] = node.arguments;
     if (call.type !== 'CallExpression' || call.callee.type !== 'Identifier') {
         throw new Error('The second argument to Logic.findall must be a simple predicate call (e.g., myPred(X)).');
     }
@@ -37,9 +42,9 @@ export default (expr, context) => {
         ? 'null' // Global predicates get null scope
         : `scopes.length === ${scopeDepth - 1} ? [...scopes, {vars, bindings}] : scopes.slice(0, ${scopeDepth + 1})`;
 
-    const goalArgsCode = `[${call.arguments.map(node => groundExpr(node, 'bindings')).join(', ')}]`;
-    const targetCode = valueExpr(target, 'bindings');
-    const templateCode = groundExpr(template, 'subgoalBindings');
+    const goalArgsCode = `[${call.arguments.map(argNode => groundExpr(transformExpression(argNode, context), 'bindings')).join(', ')}]`;
+    const targetCode = valueExpr(transformExpression(context.lhs, context), 'bindings');
+    const templateCode = groundExpr(transformExpression(template, context), 'subgoalBindings');
 
     return [
         `const findallSolutions = resume.findallSolutions ?? [];`,

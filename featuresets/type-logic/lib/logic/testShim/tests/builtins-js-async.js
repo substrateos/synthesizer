@@ -76,7 +76,7 @@ export default
       "source": `
             // Sync rule for arithmetic
             function add(A, B, S) { 
-              S = Number(A+B); 
+              S = Logic.js(A+B); 
             }
       
             // Async rule that fetches a number, then calls add

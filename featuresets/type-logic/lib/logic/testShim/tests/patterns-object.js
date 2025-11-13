@@ -1,5 +1,5 @@
 export const attributes = {
-    type: "example/json"
+  type: "example/json"
 };
 
 export default [
@@ -10,20 +10,10 @@ export default [
         source: `
           // Valid LHS: Rest is last. Renamed ...R to ...RR to bypass transpiler var bug.
           function get_a_rest({a, ...RR}, A, Rest) { A = a; Rest = RR; }
-          
-          // Valid LHS: Renamed ...Rest to ...RR to bypass transpiler var bug.
-          function destructure_it({a, b, c, ...RR}, A, B, C, R) {
-            A=a; B=b; C=c; R=RR;
-          }
-          
-          // Valid LHS pattern for failure test
-          function pattern_ab({a, b, ...T}) {}
         `,
         queries: {
           destructure_ok: {get_a_rest: [{"a": 1, "b": 2, "c": 3}, {"$var": "A"}, {"$var": "R"}]},
-          destructure_all: {destructure_it: [{"a": 1, "b": 2, "c": 3, "d": 4, "e": 5}, {"$var": "A"}, {"$var": "B"}, {"$var": "C"}, {"$var": "R"}]},
           destructure_empty_rest: {get_a_rest: [{"a": 1}, {"$var": "A"}, {"$var": "R"}]},
-          fail_missing_prop: {pattern_ab: [{"a": 1, "c": 3}]}
         }
       }
     ],
@@ -31,8 +21,48 @@ export default [
     returns: {
       solutions: {
         destructure_ok: [{"A": 1, "R": {"b": 2, "c": 3}}],
-        destructure_all: [{"A": 1, "B": 2, "C": 3, "R": {"d": 4, "e": 5}}],
         destructure_empty_rest: [{"A": 1, "R": {}}],
+      }
+    }
+  },
+  {
+    description: "LHS: Destructuring in Rule Head",
+    params: [
+      {
+        source: `
+          // Valid LHS: Renamed ...Rest to ...RR to bypass transpiler var bug.
+          function destructure_it({a, b, c, ...RR}, A, B, C, R) {
+            A=a; B=b; C=c; R=RR;
+          }
+        `,
+        queries: {
+          destructure_all: {destructure_it: [{"a": 1, "b": 2, "c": 3, "d": 4, "e": 5}, {"$var": "A"}, {"$var": "B"}, {"$var": "C"}, {"$var": "R"}]},
+        }
+      }
+    ],
+    debugKeys: ["generatedSource", "traces"],
+    returns: {
+      solutions: {
+        destructure_all: [{"A": 1, "B": 2, "C": 3, "R": {"d": 4, "e": 5}}],
+      }
+    }
+  },
+  {
+    description: "LHS: Destructuring in Rule Head",
+    params: [
+      {
+        source: `
+          // Valid LHS pattern for failure test
+          function pattern_ab({a, b, ...T}) {}
+        `,
+        queries: {
+          fail_missing_prop: {pattern_ab: [{"a": 1, "c": 3}]}
+        }
+      }
+    ],
+    debugKeys: ["generatedSource", "traces"],
+    returns: {
+      solutions: {
         fail_missing_prop: []
       }
     }
@@ -46,7 +76,24 @@ export default [
           function add_a(R, Result) {
             Result = {a: 1, ...R};
           }
-          
+        `,
+        queries: {
+          construct_simple: {add_a: [{"b": 2, "c": 3}, {"$var": "Obj"}]},
+        }
+      }
+    ],
+    debugKeys: ["generatedSource", "traces"],
+    returns: {
+      solutions: {
+        construct_simple: [{"Obj": {"a": 1, "b": 2, "c": 3}}],
+      }
+    }
+  },
+  {
+    description: "RHS: Construction with Flexible Spread Syntax",
+    params: [
+      {
+        source: `
           // Complex RHS construction with multiple spreads
           function build_complex(R1, R2, Result) {
             // R2's 'b' property will overwrite the 'b: 2'
@@ -60,8 +107,29 @@ export default [
           }
         `,
         queries: {
-          construct_simple: {add_a: [{"b": 2, "c": 3}, {"$var": "Obj"}]},
           construct_complex: {build_complex: [{"e": 5}, {"f": 6, "b": 99}, {"$var": "Obj"}]},
+        }
+      }
+    ],
+    debugKeys: ["generatedSource", "traces"],
+    returns: {
+      solutions: {
+        construct_complex: [{"Obj": {"a": 1, "e": 5, "b": 99, "f": 6, "c": 3}}],
+      }
+    }
+  },
+  {
+    description: "RHS: Construction with Flexible Spread Syntax",
+    params: [
+      {
+        source: `
+          // Test property overwriting
+          function build_overwrite(R1, R2, Obj) {
+            // {a:1, c:3, b:2, a:99, d:4, b:100} -> {c:3, a:99, d:4, b:100}
+            Obj = {a: 1, ...R1, b: 2, a: 99, ...R2};
+          }
+        `,
+        queries: {
           ground_overwrite: {build_overwrite: [{"c": 3}, {"d": 4, "b": 100}, {"$var": "Obj"}]},
           ground_unbound_rest: {build_overwrite: [{"$var": "R1"}, {"d": 4}, {"$var": "Obj"}]}
         }
@@ -70,11 +138,9 @@ export default [
     debugKeys: ["generatedSource", "traces"],
     returns: {
       solutions: {
-        construct_simple: [{"Obj": {"a": 1, "b": 2, "c": 3}}],
-        construct_complex: [{"Obj": {"a": 1, "e": 5, "b": 99, "f": 6, "c": 3}}],
         ground_overwrite: [{"Obj": {"c": 3, "a": 99, "d": 4, "b": 100}}],
         ground_unbound_rest: [{
-          "Obj": {"$class": "ObjectPattern", "args": [[{"a": 99, "b": 2, "d": 4}, {"$var": "R1"}], {isExact: false}]},
+          "Obj": {"$class": "ObjectPattern", "args": [{"a": 99, "b": 2, "d": 4}, {"$var": "R1"}]},
           "R1": {"$var": "R1"}
         }]
       }
@@ -101,7 +167,7 @@ export default [
             P = {a: 1, b: 2, c: 3}; // Unification goal
             P_out = P;
           }
-          
+
           // Test: Unify a complex pattern with multiple spreads
           // This tests the deterministic non-greedy logic.
           function test_complex_unify(R1, R2, P_out) {
@@ -170,14 +236,39 @@ export default [
           }
         `,
         queries: {
-          pattern_vs_pattern: {test_p_vs_p: [{"$var": "R"}, {"$var": "S"}]}
+          pattern_vs_pattern: { test_p_vs_p: [{ "$var": "R" }, { "$var": "S" }] }
         }
       }
     ],
     debugKeys: ["generatedSource", "traces"],
     returns: {
       solutions: {
-        pattern_vs_pattern: []
+        pattern_vs_pattern: [
+          {
+            "R": {
+              "$class": "ObjectPattern",
+              "args": [
+                {
+                  "b": 2
+                },
+                {
+                  "$var": "Pivot"
+                }
+              ]
+            },
+            "S": {
+              "$class": "ObjectPattern",
+              "args": [
+                {
+                  "a": 1
+                },
+                {
+                  "$var": "Pivot"
+                }
+              ]
+            }
+          }
+        ]
       }
     }
   }

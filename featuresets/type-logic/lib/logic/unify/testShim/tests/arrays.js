@@ -426,7 +426,7 @@ export default [
             },
             "All": {
                 "value": {
-                    "parts": [
+                    "$class": "ArrayPattern", "args": [
                         { "$var": "xs" },
                         { "$var": "ys" }
                     ]
@@ -440,7 +440,7 @@ export default [
             "ys": {
                 "value": [2, 6, 4],
                 "trace": []
-            },
+            }
         }
     },
     {
@@ -465,7 +465,7 @@ export default [
         }],
         "returns": {
             "X": {
-                "value": { "parts": [[1], { "$var": "Y" }] },
+                "value": { "$class": "ArrayPattern", "args": [[1], { "$var": "Y" }] },
                 "trace": []
             },
             "Y": { "value": [2], "trace": [] }
@@ -492,7 +492,7 @@ export default [
         }],
         "returns": {
             "All": {
-                "value": { "parts": [{ "$var": "Y" }, [2]] },
+                "value": { "$class": "ArrayPattern", "args": [{ "$var": "Y" }, [2]] },
                 "trace": []
             },
             "X": {
@@ -506,7 +506,7 @@ export default [
         }
     },
     {
-        "description": "T22: (T19 Fix) Unify two patterns that ground to concrete, equal arrays",
+        "description": "T22: Unify two patterns that ground to concrete, equal arrays",
         "params": [{
             "term1": { "$var": "A" },
             "term2": { "$var": "B" },
@@ -532,11 +532,11 @@ export default [
         }],
         "returns": {
             "A": {
-                "value": { "parts": [[1], { "$var": "X" }] },
+                "value": { "$class": "ArrayPattern", "args": [[1], { "$var": "X" }] },
                 "trace": []
             },
             "B": {
-                "value": { "parts": [{ "$var": "Y" }, [2]] },
+                "value": { "$class": "ArrayPattern", "args": [{ "$var": "Y" }, [2]] },
                 "trace": []
             },
             "X": { "value": [2], "trace": [] },
@@ -622,5 +622,198 @@ export default [
             "location": { "rule": "T26" }
         }],
         "returns": null
+    },
+    {
+        "description": "T27: JS-Style Default: Fails (no default)",
+        "params": [{
+            "term1": [{ "$var": "A" }, { "$var": "B" }, { "$var": "C" }],
+            "term2": [1, 2],
+            "bindings": {},
+            "location": { "rule": "T-Default-Fail" }
+        }],
+        "returns": null
+    },
+    {
+        "description": "T28: JS-Style Default: Fails (with default)",
+        "params": [{
+            "term1": [
+                { "$var": "A" },
+                { "$var": "B" },
+                {
+                    "$optional": [{ "$var": "__C" }, 99]
+                }
+            ],
+            "term2": [1, 2],
+            "bindings": {},
+            "location": { "rule": "T-Default-Success" }
+        }],
+        "returns": null
+    },
+    // {
+    //     "description": "T29: ArrayPattern: [A, default(99), ...T] vs [1] -> Succeeds, applies default",
+    //     "params": [{
+    //         "term1": {
+    //             "$class": "ArrayPattern",
+    //             "args": [
+    //                 [
+    //                     { "$var": "A" },
+    //                     {
+    //                         "$optional": [{ "$var": "__B" }, 99]
+    //                     }
+    //                 ],
+    //                 { "$var": "T" }
+    //             ]
+    //         },
+    //         "term2": [1],
+    //         "bindings": {},
+    //         "location": { "rule": "Pat-Default" }
+    //     }],
+    //     "returns": {
+    //         "A": { "value": 1, "trace": [{ "type": "BIND", "variable": { "$var": "A" }, "value": 1, "location": { "rule": "Pat-Default" } }] },
+    //         "__B": { "value": 99, "trace": [{ "type": "BIND", "variable": { "$var": "__B" }, "value": 99, "location": { "rule": "Pat-Default" } }] },
+    //         "T": { "value": [], "trace": [{ "type": "BIND", "variable": { "$var": "T" }, "value": [], "location": { "rule": "Pat-Default" } }] }
+    //     }
+    // },
+    {
+        "description": "T30: ArrayPattern: [A, default(99), ...T] vs [1, 2] -> Default Ignored",
+        "params": [{
+            "term1": {
+                "$class": "ArrayPattern",
+                "args": [
+                    [
+                        { "$var": "A" },
+                        { "$optional": [{ "$var": "__B" }, 99] }
+                    ],
+                    { "$var": "T" }
+                ]
+            },
+            "term2": [1, 2],
+            "bindings": {},
+            "location": { "rule": "Pat-Override" }
+        }],
+        "returns": {
+            "A": { "value": 1, "trace": [{ "type": "BIND", "variable": { "$var": "A" }, "value": 1, "location": { "rule": "Pat-Override" } }] },
+            "__B": { "value": 2, "trace": [{ "type": "BIND", "variable": { "$var": "__B" }, "value": 2, "location": { "rule": "Pat-Override" } }] },
+            "T": { "value": [], "trace": [{ "type": "BIND", "variable": { "$var": "T" }, "value": [], "location": { "rule": "Pat-Override" } }] }
+        }
+    },
+    {
+        "description": "T31: ArrayPattern: [A, B = optional(99), ...T] vs [1, W = optional(50)] -> Pattern Default Ignored",
+        "params": [{
+            "term1": {
+                "$class": "ArrayPattern",
+                "args": [
+                    [
+                        { "$var": "A" },
+                        { "$optional": [{ "$var": "B" }, 99] }
+                    ],
+                    { "$var": "T" }
+                ]
+            },
+            "term2": [1, { "$var": "X" }],
+            "bindings": {
+                "X": {
+                    "value": {
+                        "$optional": [{ "$var": "W" }, 50]
+                    },
+                    "trace": []
+                }
+            },
+            "location": { "rule": "Pat-VarDefault-Override" }
+        }],
+        "returns": null,
+    },
+    {
+        "description": "T32: ArrayPattern: [A, B = optional(99), ...T] vs [1, W = optional(99)] -> Pattern Default Ignored",
+        "params": [{
+            "term1": {
+                "$class": "ArrayPattern",
+                "args": [
+                    [
+                        { "$var": "A" },
+                        { "$optional": [{ "$var": "B" }, 99] }
+                    ],
+                    { "$var": "T" }
+                ]
+            },
+            "term2": [1, { "$var": "X" }],
+            "bindings": {
+                "X": {
+                    "value": {
+                        "$optional": [{ "$var": "W" }, 99]
+                    },
+                    "trace": []
+                }
+            },
+            "location": { "rule": "Pat-VarDefault-Override" }
+        }],
+        "returns": {
+            "A": { "value": 1, "trace": [{ "type": "BIND", "variable": { "$var": "A" }, "value": 1, "location": { "rule": "Pat-VarDefault-Override" } }] },
+            "T": { "value": [], "trace": [{ "type": "BIND", "variable": { "$var": "T" }, "value": [], "location": { "rule": "Pat-VarDefault-Override" } }] },
+            "X": {
+                "value": {
+                    "$optional": [{ "$var": "W" }, 99]
+                },
+                "trace": []
+            },
+            "B": { "value": { "$var": "W" }, "trace": [{ "type": "BIND", "variable": { "$var": "B" }, "value": { "$var": "W" }, "location": { "rule": "Pat-VarDefault-Override" } }] },
+            "W": { "value": 99, "trace": [{ "type": "BIND", "variable": { "$var": "W" }, "value": 99, "location": { "rule": "Pat-VarDefault-Override" } }, { "type": "BIND", "variable": { "$var": "B" }, "value": { "$var": "W" }, "location": { "rule": "Pat-VarDefault-Override" } }] }
+        }
+    },
+    {
+        "description": "Unify: Variable vs. Plain Array with Value.required (Sleeping Constraint)",
+        "params": [
+            {
+                "term1": { "$var": "Z" },
+                "term2": [
+                    {
+                        "$required": [
+                            { "$var": "A" },
+                            10
+                        ]
+                    }
+                ],
+                "bindings": {},
+                "location": { "rule": "Sleeping-Constraint-Test-Array" }
+            }
+        ],
+        "returns": {
+            "Z": {
+                "value": [{
+                    "$required": [
+                        {
+                            "$var": "A"
+                        },
+                        10
+                    ]
+                }],
+                "trace": [
+                    {
+                        "type": "BIND",
+                        "variable": { "$var": "Z" },
+                        "value": [
+                            {
+                                "$required": [
+                                    { "$var": "A" },
+                                    10
+                                ]
+                            }
+                        ],
+                        "location": { "rule": "Sleeping-Constraint-Test-Array" }
+                    }
+                ]
+            },
+            "A": {
+                "value": 10,
+                "trace": [
+                    {
+                        "type": "BIND",
+                        "variable": { "$var": "A" },
+                        "value": 10,
+                        "location": { "rule": "Sleeping-Constraint-Test-Array" }
+                    }
+                ]
+            }
+        }
     }
 ]
