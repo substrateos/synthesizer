@@ -29,15 +29,27 @@ async function runTestsFor({path, workspace, names, logResults, throwOnFail}) {
         for (const {testName: test} of matches) {
             try {
                 const testUnit = await getDefault(workspace, test)
+                if (logResults) {
+                    console.group(`TEST path=${JSON.stringify(path)} testFor=${name} testUnit=${test}`);
+                }
                 await testUnit({unit, workspace})
                 passed.push({name, test})
                 if (logResults) {
-                    console.log(`PASS path=${JSON.stringify(path)} testFor=${name} testUnit=${test}`);
+                    console.log(`%cPASS`,
+                        'color: #28a745;', // Green
+                    );
                 }
             } catch (caught) {
                 failed.push({name, test, caught})
                 if (logResults) {
-                    console.error(`FAIL path=${JSON.stringify(path)} testFor=${name} testUnit=${test} error="${caught.name}: ${caught.message}`);
+                    console.error(`%c${caught.name}%c: ${caught.message}`,
+                        'color: #dc3545; font-weight: bold;',
+                        'color: inherit; font-weight: normal;'
+                    );
+                }
+            } finally {
+                if (logResults) {
+                    console.groupEnd()
                 }
             }
         }

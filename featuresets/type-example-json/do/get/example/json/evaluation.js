@@ -15,8 +15,7 @@ export default async function (handlerInputs) {
         cases = [parsed]
     }
 
-    const expectedResults = cases.map(({description, returns, throws}) => ({
-        description,
+    const expectedResults = cases.map(({returns, throws}) => ({
         returns,
         throws
     }));
@@ -27,10 +26,10 @@ export default async function (handlerInputs) {
     ${debug ? '' : '// ' }debugger
     try {
         const returns = await unit(${params.map(p => JSON.stringify(p)).join(", ")});
-        actualResults.push({ description: ${JSON.stringify(description)}, returns });
+        actualResults.push({ returns });
     } catch (err) {
         const throws = {name: err.name, message: err.message, ...err};
-        actualResults.push({ description: ${JSON.stringify(description)}, throws });
+        actualResults.push({ throws });
     }
 `
     }
@@ -52,15 +51,25 @@ export default async ({unit}) => {
 
     // Helper to remove debug-only keys for a clean comparison.
     const cleanResultForDiff = (result, testCase) => {
-        if (!testCase.debugKeys || !result.returns) {
-            return result; // No cleaning needed for this case.
-        }
         // Deep clone to avoid modifying the original object.
         const cleanedResult = JSON.parse(JSON.stringify(result));
-        for (const key of testCase.debugKeys) {
-            delete cleanedResult.returns[key];
+        if (testCase.debugKeys) {
+            for (const key of testCase.debugKeys) {
+                delete cleanedResult.returns[key];
+            }
         }
         return cleanedResult;
+    };
+
+    const debugResult = (result, testCase) => {
+        if (!testCase.debugKeys) {
+            return null; // No debugKeys for this case.
+        }
+        const d = {};
+        for (const key of testCase.debugKeys) {
+            d[key] = result.returns[key];
+        }
+        return d;
     };
 
     // Create clean versions of the results for comparison.
@@ -69,24 +78,69 @@ export default async ({unit}) => {
     
     // Perform the diff against the cleaned result sets.
     const delta = differ.diff(expectedForDiff, actualForDiff);
+    const actualForDebug = actualResults.map((res, i) => debugResult(res, cases[i]));
+    const formatter = new ConsoleFormatter();
 
-    // If there's a difference, log the full, original results and throw an error.
+    /**
+     * Logs a single test case result (PASS or FAIL) to the console.
+     */
+    const logTestCase = (i, testCase, testDelta, expected, actual, debug) => {
+        if (testDelta) {
+            // This test FAILED
+            console.group(
+                \`%c[\${i}] %c\${testCase.description}\`,
+                'color: #dc3545; font-weight: bold;', // Style for [FAIL @ index]
+                'color: inherit; font-weight: normal;' // Style for description
+            );
+            try {
+                // Use ConsoleFormatter to show the diff
+                formatter.format(testDelta);
+            } catch (e) {
+                console.error("Error while formatting delta", testDelta, e)
+            }
+        } else {
+            // This test PASSED
+            console.groupCollapsed(
+                \`%c[\${i}] %c\${testCase.description}\`,
+                'color: #28a745;', // Green
+                'color: inherit; font-weight: normal;'
+            );
+        }
+        console.log('Params:', testCase.params);
+        console.log('Result:', actual); // Show 'Got'
+        if (debug) {
+            console.log('Debug: ', debug);
+        }
+        console.groupEnd();
+    };
+
+
+    let error
     if (delta) {
+        const hasDebug = actualForDebug.some(d => d)
         const failure = [
             "FAIL testID=${name}",
-            "want=" + JSON.stringify(expectedResults), // Log original full data
-            " got=" + JSON.stringify(actualResults),   // Log original full data
+            " want=" + JSON.stringify(expectedForDiff),
+            "  got=" + JSON.stringify(actualForDiff),
+            ...(hasDebug ? ["debug=" + JSON.stringify(actualForDebug)] : []),
         ].join("\\n")
-        console.log('FAIL: Test results for "${name}" do not match expected results.', {
-            expectedResults, // Log original
-            actualResults    // Log original
-        });
-        try {
-            new ConsoleFormatter().format(delta);
-        } catch (e) {
-            console.error("Error while formatting delta", delta, e)
-        }
-        throw new Error(failure);
+        error = new Error(failure);
+    }
+
+    // Iterate through all test cases and use the new helper
+    for (let i = 0; i < cases.length; i++) {
+        logTestCase(
+            i,
+            cases[i],
+            (delta && (delta[\`\${i}\`] || delta[\`_\${i}\`])),
+            expectedForDiff[i],
+            actualForDiff[i],
+            actualForDebug[i]
+        );
+    }
+
+    if (error) {
+        throw error
     }
 }`
 
