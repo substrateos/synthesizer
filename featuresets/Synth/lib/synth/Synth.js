@@ -57,12 +57,17 @@ export default class {
     #store;
     #tracer;
     #doer;
+    #cache;
 
     constructor({units, store, zygote}={}) {
         this.#zygote = zygote
         this.#store = store || new Store({units})
         this.#doer = doer
         this.#tracer = new Tracer()
+
+        this.#cache = new Map()
+        this.#store.addEventListener('restore', () => { this.#cache.clear() })
+        this.#store.addEventListener('write', () => { this.#cache.clear() })
 
         this.do = new Proxy(
             async (action, ...args) => {
@@ -129,7 +134,27 @@ export default class {
         let value = unit?.[attribute]
 
         if (value === undefined) {
-            value = await this.do('get', {unit, name, attribute, ...rest})
+            // cache is only enabled when there are no other options
+            let cacheEnabled = true
+            for (const k in rest) { cacheEnabled = false; break }
+            if (cacheEnabled) {
+                let entry = this.#cache.get(name)
+                if (!entry) {
+                    entry = {}
+                    this.#cache.set(name, entry)
+                }
+                let cached = entry[attribute]
+                if (!cached) {
+                    cached = this.do('get', {unit, name, attribute})
+                    entry[attribute] = cached
+                    // console.log('cache miss', this.#id, name, attribute)
+                } else {
+                    // console.log('cache  hit', this.#id, name, attribute)
+                }
+                value = await cached
+            } else {
+                value = await this.do('get', {unit, name, attribute, ...rest})
+            }
         }
 
         traceFinish(value)
