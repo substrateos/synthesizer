@@ -24,33 +24,42 @@ async function runTestsFor({path, workspace, names, logResults, throwOnFail}) {
     for (const [name, matches] of Object.entries(Object.groupBy(allTestMatches, m => m.targetName))) {
         total += matches.length
 
-        const unit = await getDefault(workspace, name)
+        try {
+            if (logResults) {
+                console.group(`TESTS path=${JSON.stringify(path)} testFor=${name}`);
+            }
+            const unit = await getDefault(workspace, name)
 
-        for (const {testName: test} of matches) {
-            try {
-                const testUnit = await getDefault(workspace, test)
-                if (logResults) {
-                    console.group(`TEST path=${JSON.stringify(path)} testFor=${name} testUnit=${test}`);
+            for (const {testName: test} of matches) {
+                try {
+                    const testUnit = await getDefault(workspace, test)
+                    if (logResults) {
+                        console.group(`TEST testUnit=${test}`);
+                    }
+                    await testUnit({unit, workspace})
+                    passed.push({name, test})
+                    if (logResults) {
+                        console.log(`%cPASS`,
+                            'color: #28a745;', // Green
+                        );
+                    }
+                } catch (caught) {
+                    failed.push({name, test, caught})
+                    if (logResults) {
+                        console.error(`%c${caught.name}%c: ${caught.message}`,
+                            'color: #dc3545; font-weight: bold;',
+                            'color: inherit; font-weight: normal;'
+                        );
+                    }
+                } finally {
+                    if (logResults) {
+                        console.groupEnd()
+                    }
                 }
-                await testUnit({unit, workspace})
-                passed.push({name, test})
-                if (logResults) {
-                    console.log(`%cPASS`,
-                        'color: #28a745;', // Green
-                    );
-                }
-            } catch (caught) {
-                failed.push({name, test, caught})
-                if (logResults) {
-                    console.error(`%c${caught.name}%c: ${caught.message}`,
-                        'color: #dc3545; font-weight: bold;',
-                        'color: inherit; font-weight: normal;'
-                    );
-                }
-            } finally {
-                if (logResults) {
-                    console.groupEnd()
-                }
+            }
+        } finally {
+            if (logResults) {
+                console.groupEnd()
             }
         }
     }

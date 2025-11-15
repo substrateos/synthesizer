@@ -53,7 +53,7 @@ export default async ({unit}) => {
     const cleanResultForDiff = (result, testCase) => {
         // Deep clone to avoid modifying the original object.
         const cleanedResult = JSON.parse(JSON.stringify(result));
-        if (testCase.debugKeys) {
+        if (testCase.debugKeys && result.returns) {
             for (const key of testCase.debugKeys) {
                 delete cleanedResult.returns[key];
             }
@@ -62,7 +62,7 @@ export default async ({unit}) => {
     };
 
     const debugResult = (result, testCase) => {
-        if (!testCase.debugKeys) {
+        if (!testCase.debugKeys || !result.returns) {
             return null; // No debugKeys for this case.
         }
         const d = {};
@@ -108,6 +108,7 @@ export default async ({unit}) => {
         }
         console.log('Params:', testCase.params);
         console.log('Result:', actual); // Show 'Got'
+        console.log('Expect:', expected); // Show 'Expected'
         if (debug) {
             console.log('Debug: ', debug);
         }
