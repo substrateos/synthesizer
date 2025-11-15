@@ -24,7 +24,7 @@ export default class Emitter {
 
     #emitLine(line) {
         const initial = this.#lines.length === 0
-        const prefix = (this.#indentInitial || initial)
+        const prefix = (this.#indentInitial || !initial)
             ? this.#prefix
             : ''
         this.#lines.push(prefix + line);

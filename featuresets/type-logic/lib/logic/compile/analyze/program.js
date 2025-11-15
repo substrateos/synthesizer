@@ -3,7 +3,7 @@ import findDeclaredFunctions from "@/lib/logic/compile/analyze/util/findDeclared
 import positionTracker from "@/lib/logic/compile/analyze/util/positionTracker.js";
 import mangleName from "@/lib/logic/compile/analyze/util/mangleName.js";
 
-function analyzeScope(astNode, parentScope, parentPath = [], extraClauseProps) {
+function analyzeScope(astNode, parentScope, parentPath = [], addExtraClauseProps) {
     const declaredPredicateFuncs = findDeclaredFunctions(astNode);
     const declaredPredicateFuncEntries = Object.entries(Object.groupBy(declaredPredicateFuncs, funcNode => funcNode.id.name))
     const depth = parentPath.length
@@ -43,10 +43,9 @@ function analyzeScope(astNode, parentScope, parentPath = [], extraClauseProps) {
             mangledName,
             depth,
             shadows: parentScope?.resolveName(name)?.definition?.mangledName,
-            clauses: funcNodes.map(funcNode => ({
+            clauses: funcNodes.map(funcNode => addExtraClauseProps({
                 astNode: funcNode,
-                scope: analyzeScope(funcNode, currentScope, currentPath, extraClauseProps),
-                ...extraClauseProps,
+                scope: analyzeScope(funcNode, currentScope, currentPath, addExtraClauseProps),
             })),
         }];
     }));
@@ -65,7 +64,12 @@ export default function analyzeProgram(ast, sourceCode) {
     const getRawSourceLocation = positionTracker(sourceCode)
 
     return {
-        topLevelScope: analyzeScope(ast, null, [], {getRawSource, getRawSourceLocation}),
+        topLevelScope: analyzeScope(ast, null, [], clauseProps => ({
+            ...clauseProps,
+            getRawSource,
+            getRawSourceLocation,
+            get astNodeSource() { return this.getRawSource(this.astNode) },
+        })),
         isModule: ast.body.some(node => node.type === 'ExportNamedDeclaration'),
     };
 }
