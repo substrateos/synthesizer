@@ -58,7 +58,7 @@ function grandparent(G, C) {
         }
       }
     ],
-    "debugKeys": ["generatedSource", "predicates", "traces"],
+    "debugKeys": ["generatedSource", "traces"],
     "returns": {
       "solutions": {
         "Should find the parent of a known child": [

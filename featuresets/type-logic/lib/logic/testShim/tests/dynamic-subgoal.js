@@ -53,7 +53,7 @@ export default [{
             },
         }
     }],
-    "debugKeys": ["generatedSource", "traces", "predicates"],
+    "debugKeys": ["generatedSource", "traces"],
     "returns": {
         "solutions": {
             "Map increment over a list": [{ "Result": [11, 21, 31] }],

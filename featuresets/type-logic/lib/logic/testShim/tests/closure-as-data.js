@@ -45,7 +45,7 @@ export default [{
             }
         }
     }],
-    "debugKeys": ["generatedSource", "predicates", "traces"],
+    "debugKeys": ["generatedSource", "traces"],
     "returns": {
         "solutions": {
             "Should use definition-site scope, not call-site scope": [{

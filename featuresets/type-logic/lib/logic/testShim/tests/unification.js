@@ -55,7 +55,7 @@ function assign_struct(X, Y) {
         }
       }
     }],
-    "debugKeys": ["generatedSource", "predicates", "traces"],
+    "debugKeys": ["generatedSource", "traces"],
     "returns": {
       "solutions": {
         "Unify var with literal": [{ "V": "test" }],

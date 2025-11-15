@@ -24,7 +24,7 @@ export default
       },
       "async": true
     }],
-    "debugKeys": ["generatedSource", "predicates", "traces"],
+    "debugKeys": ["generatedSource", "traces"],
     "returns": {
       "solutions": {
         "Async_Resolve": [
@@ -59,7 +59,7 @@ export default
       },
       "async": true
     }],
-    "debugKeys": ["generatedSource", "predicates", "traces"],
+    "debugKeys": ["generatedSource", "traces"],
     "returns": {
       "solutions": {
         "Async_Reject_Fallback": [
@@ -97,7 +97,7 @@ export default
       },
       "async": true
     }],
-    "debugKeys": ["generatedSource", "predicates", "traces"],
+    "debugKeys": ["generatedSource", "traces"],
     "returns": {
       "solutions": {
         "Async_Continuation": [
@@ -128,7 +128,7 @@ export default
       },
       "async": false
     }],
-    "debugKeys": ["generatedSource", "predicates", "traces"],
+    "debugKeys": ["generatedSource", "traces"],
     "throws": {"name": "Error", "message": "Async operation (await) detected in a 'logic.solve' block. Use 'logic.solveAsync' to enable asynchronous operations."},
   }
 ]

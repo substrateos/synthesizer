@@ -30,7 +30,7 @@ function path(X, Z) {
             "Should fail to find a path that does not exist": { path: ['d', 'a'] }
         },
     }],
-    debugKeys: ["generatedSource", "predicates", "traces"],
+    debugKeys: ["generatedSource", "traces"],
     returns: {
         "solutions": {
             "Should find all possible next steps in a path": [

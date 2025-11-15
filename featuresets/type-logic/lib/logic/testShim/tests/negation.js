@@ -24,7 +24,7 @@ function can_not_vote(Age) {
             }
         }
     }],
-    "debugKeys": ["generatedSource", "predicates", "traces"],
+    "debugKeys": ["generatedSource", "traces"],
     "returns": {
         "solutions": {
             "Should succeed for an adult": [{}],

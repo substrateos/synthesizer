@@ -56,7 +56,7 @@ export default [
                 }
             }
         ],
-        "debugKeys": ["generatedSource", "traces", "predicates"],
+        "debugKeys": ["generatedSource", "traces"],
         "returns": {
             "solutions": {
                 "Should find all solutions, local first, then global on backtrack": [

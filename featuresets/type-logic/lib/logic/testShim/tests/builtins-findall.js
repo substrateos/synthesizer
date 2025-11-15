@@ -79,7 +79,7 @@ function find_all_members(Group, Members) {
                 }
             }
         ],
-        debugKeys: ["generatedSource", "traces", "predicates"],
+        debugKeys: ["generatedSource", "traces"],
         returns: {
             "solutions": {
                 "get_catalog": [

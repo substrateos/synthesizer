@@ -42,7 +42,7 @@ export default [
                 }
             }
         ],
-        "debugKeys": ["generatedSource", "predicates", "traces"],
+        "debugKeys": ["generatedSource", "traces"],
         "returns": {
             "solutions": {
                 "Implicit read and explicit return": [

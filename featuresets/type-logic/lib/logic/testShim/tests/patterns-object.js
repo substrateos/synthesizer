@@ -27,7 +27,7 @@ export default [
         }
       }
     ],
-    debugKeys: ["generatedSource", "predicates", "traces"],
+    debugKeys: ["generatedSource", "traces"],
     returns: {
       solutions: {
         destructure_ok: [{"A": 1, "R": {"b": 2, "c": 3}}],
@@ -67,14 +67,14 @@ export default [
         }
       }
     ],
-    debugKeys: ["generatedSource", "predicates", "traces"],
+    debugKeys: ["generatedSource", "traces"],
     returns: {
       solutions: {
         construct_simple: [{"Obj": {"a": 1, "b": 2, "c": 3}}],
         construct_complex: [{"Obj": {"a": 1, "e": 5, "b": 99, "f": 6, "c": 3}}],
         ground_overwrite: [{"Obj": {"c": 3, "a": 99, "d": 4, "b": 100}}],
         ground_unbound_rest: [{
-          "Obj": {"parts": [{"a": 99, "b": 2, "d": 4}, {"$var": "R1"}], isExact: false},
+          "Obj": {"$class": "ObjectPattern", "args": [[{"a": 99, "b": 2, "d": 4}, {"$var": "R1"}], {isExact: false}]},
           "R1": {"$var": "R1"}
         }]
       }
@@ -117,7 +117,7 @@ export default [
         }
       }
     ],
-    debugKeys: ["generatedSource", "predicates", "traces"],
+    debugKeys: ["generatedSource", "traces"],
     returns: {
       solutions: {
         simple_unify_pattern_vs_value: [
@@ -149,7 +149,7 @@ export default [
         }
       }
     ],
-    debugKeys: ["generatedSource", "predicates", "traces"],
+    debugKeys: ["generatedSource", "traces"],
     throws: {
       name: "Error",
       message: "Cannot ground ObjectPattern: spread variable 'T' was bound to a non-object value."
@@ -174,7 +174,7 @@ export default [
         }
       }
     ],
-    debugKeys: ["generatedSource", "predicates", "traces"],
+    debugKeys: ["generatedSource", "traces"],
     returns: {
       solutions: {
         pattern_vs_pattern: []

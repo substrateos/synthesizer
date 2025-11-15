@@ -35,7 +35,7 @@ function path(X, Y) {
             "Should find all possible next steps in a path (BFS)": { "scheduler": "BFS" }
         }
     }],
-    "debugKeys": ["generatedSource", "predicates", "traces"],
+    "debugKeys": ["generatedSource", "traces"],
     "returns": {
         "solutions": {
             "Should find all possible next steps in a path (DFS)": [

@@ -18,7 +18,7 @@ export default [
         }
       }
     }],
-    "debugKeys": ["generatedSource", "predicates", "traces"],
+    "debugKeys": ["generatedSource", "traces"],
     "returns": {
       "solutions": {
         "Join_Literals": [
@@ -42,7 +42,7 @@ export default [
         }
       }
     }],
-    "debugKeys": ["generatedSource", "predicates", "traces"],
+    "debugKeys": ["generatedSource", "traces"],
     "returns": {
       "solutions": {
         "Join_Literals": [
@@ -78,7 +78,7 @@ export default [
         }
       }
     }],
-    "debugKeys": ["generatedSource", "predicates", "traces"],
+    "debugKeys": ["generatedSource", "traces"],
     "returns": {
       "solutions": {
         "Join_Variable": [
@@ -141,7 +141,7 @@ export default [
         }
       }
     }],
-    "debugKeys": ["generatedSource", "predicates", "traces"],
+    "debugKeys": ["generatedSource", "traces"],
     "returns": {
       "solutions": {
         "Advanced_IIFE_Test": [

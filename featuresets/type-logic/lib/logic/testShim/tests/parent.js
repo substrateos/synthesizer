@@ -29,7 +29,7 @@ function parent(X, Y) {
             }
         }
     ],
-    "debugKeys": ["generatedSource", "predicates", "traces"],
+    "debugKeys": ["generatedSource", "traces"],
     "returns": {
         "solutions": {
             "Check a known parent": [

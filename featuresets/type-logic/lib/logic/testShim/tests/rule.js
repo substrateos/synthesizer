@@ -21,7 +21,7 @@ function always_succeeds() {
             }
         }
     ],
-    "debugKeys": ["generatedSource", "predicates", "traces"],
+    "debugKeys": ["generatedSource", "traces"],
     "returns": {
         "solutions": {
             "Should succeed with a simple, empty-body rule": [

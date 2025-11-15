@@ -39,7 +39,7 @@ function test_object_shorthand(name) {
                 }
             }
         ],
-        "debugKeys": ["generatedSource", "predicates", "traces"],
+        "debugKeys": ["generatedSource", "traces"],
         "returns": {
             "solutions": {
                 "Destructure array in body": [{"X": 20}],

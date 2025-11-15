@@ -102,17 +102,9 @@ export default async function({async, source, queries, configs}) {
         allSolutions[queryName] = async ? await all(solutionGenerator) : all(solutionGenerator);
     }
 
-    const predicates = {};
-    for (const predName in db) {
-        if (Object.hasOwn(db, predName)) {
-            predicates[predName] = db[predName][predicatesTag];
-        }
-    }
-
     return serialize({
         solutions: allSolutions,
         generatedSource: db[generatedSourceTag],
-        predicates: predicates,
         traces: allTraces
     });
 }

@@ -23,7 +23,7 @@ export default [
                 }
             }
         ],
-        "debugKeys": ["generatedSource", "predicates", "traces"],
+        "debugKeys": ["generatedSource", "traces"],
         "returns": {
             "solutions": {
                 "head_tail_ok": [{ "H": 1, "T": [2, 3] }],
@@ -54,7 +54,7 @@ export default [
                 }
             }
         ],
-        "debugKeys": ["generatedSource", "predicates", "traces"],
+        "debugKeys": ["generatedSource", "traces"],
         "returns": {
             "solutions": {
                 "construct_simple": [{ "L": [1, 2, 3] }],
@@ -99,7 +99,7 @@ export default [
                 }
             }
         ],
-        "debugKeys": ["generatedSource", "predicates", "traces"],
+        "debugKeys": ["generatedSource", "traces"],
         "returns": {
             "solutions": {
                 "simple_unify_pattern_vs_value": [{ "A": 1, "T": [2, 3], "P": [1, 2, 3] }],
@@ -119,7 +119,7 @@ export default [
                 }
             }
         ],
-        "debugKeys": ["generatedSource", "predicates", "traces"],
+        "debugKeys": ["generatedSource", "traces"],
         "throws": {
             "name": "Error",
             "message": "Cannot ground ArrayPattern: spread variable 'T' was bound to a non-array value."
@@ -144,7 +144,7 @@ export default [
                 }
             }
         ],
-        "debugKeys": ["generatedSource", "predicates", "traces"],
+        "debugKeys": ["generatedSource", "traces"],
         "returns": {
             "solutions": {
                 // technically there is a valid solution that a tweak to our algorithm *should* be able to find.
@@ -175,7 +175,7 @@ export default [
                 }
             }
         ],
-        "debugKeys": ["generatedSource", "predicates", "traces"],
+        "debugKeys": ["generatedSource", "traces"],
         "returns": {
             "solutions": {
                 "pattern_vs_pattern": [{ "A": 1, "T": { "$var": "S" }, "S": { "$var": "S" } }]

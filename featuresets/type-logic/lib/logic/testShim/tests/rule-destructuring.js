@@ -1,5 +1,5 @@
 export const attributes = {
-    type: "example/json"
+  type: "example/json"
 }
 
 export default [
@@ -62,7 +62,7 @@ export default [
         }
       }
     ],
-    "debugKeys": ["generatedSource", "predicates", "traces"],
+    "debugKeys": ["generatedSource", "traces"],
     "returns": {
       "solutions": {
         "Array: Get head of a list": [{ "H": 10 }],
