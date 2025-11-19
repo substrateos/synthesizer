@@ -1,5 +1,5 @@
 export default async function (handlerInputs) {
-    const {action, unit, name, workspace} = this
+    const {action, unit, name, workspace, console} = this
     const {source} = unit
 
     let parsed
@@ -38,7 +38,7 @@ export default async function (handlerInputs) {
 import {jsondiffpatch} from "@/lib/example/json/jsondiffpatch@0.7.3/jsondiffpatch.js";
 import ConsoleFormatter from "@/lib/example/json/ConsoleFormatter.js";
 
-export default async ({unit}) => {
+export default async ({unit, console}) => {
     // testID=${name}
     
     // Embed the test cases and expected results directly in the source.
@@ -126,6 +126,9 @@ export default async ({unit}) => {
             ...(hasDebug ? ["debug=" + JSON.stringify(actualForDebug)] : []),
         ].join("\\n")
         error = new Error(failure);
+        error.expected = expectedForDiff
+        error.actual = actualForDiff
+        error.debug = actualForDebug
     }
 
     // Iterate through all test cases and use the new helper

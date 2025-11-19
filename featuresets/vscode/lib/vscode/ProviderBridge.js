@@ -1,6 +1,7 @@
 import FileSystemAdapter from "@/lib/vscode/FileSystemAdapter.js"
 import TextSearchAdapter from "@/lib/vscode/TextSearchAdapter.js"
 import CommandsAdapter from "@/lib/vscode/CommandsAdapter.js"
+import TestAdapter from "@/lib/vscode/TestAdapter.js"
 
 export default class ProviderBridge {
     #synth;
@@ -10,6 +11,7 @@ export default class ProviderBridge {
     #fsAdapter;
     #searchAdapter;
     #commandsAdapter;
+    #testAdapter;
 
     #activeRequests = new Map(); // <requestId, AbortController>
 
@@ -19,6 +21,7 @@ export default class ProviderBridge {
         this.#fsAdapter = FileSystemAdapter;
         this.#searchAdapter = TextSearchAdapter;
         this.#commandsAdapter = CommandsAdapter;
+        this.#testAdapter = TestAdapter;
 
         this.#listener = this.#handleEvent.bind(this)
         synth.addEventListener('write', this.#listener)
@@ -83,6 +86,26 @@ export default class ProviderBridge {
             // --- Command Route ---
             case 'runCommand':
                 this.#runRequest(requestId, async () => await this.#commandsAdapter.doCommand(this.#synth, message));
+                break;
+
+            // --- Test Adapter Routes ---
+            case 'discoverTests':
+                this.#runRequest(requestId, async () => {
+                    const tests = await this.#testAdapter.doDiscover(this.#synth);
+                    return { tests };
+                });
+                break;
+
+            case 'runTests':
+                this.#runRequest(requestId, async (onProgress, signal) => {
+                    await this.#testAdapter.doRun(
+                        this.#synth,
+                        message.testIds,
+                        onProgress,
+                        signal
+                    );
+                    return { status: 'complete' };
+                });
                 break;
 
             // --- Generic Lifecycle Route ---

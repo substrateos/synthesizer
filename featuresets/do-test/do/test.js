@@ -36,7 +36,7 @@ async function runTestsFor({path, workspace, names, logResults, throwOnFail}) {
                     if (logResults) {
                         console.group(`TEST testUnit=${test}`);
                     }
-                    await testUnit({unit, workspace})
+                    await testUnit({unit, workspace, console: window.console})
                     passed.push({name, test})
                     if (logResults) {
                         console.log(`%cPASS`,

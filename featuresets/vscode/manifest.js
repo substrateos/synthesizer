@@ -7,6 +7,7 @@ export default {
         'lib/vscode/CommandsAdapter.js',
         'lib/vscode/FileSystemAdapter.js',
         'lib/vscode/TextSearchAdapter.js',
+        'lib/vscode/TestAdapter.js',
         'lib/vscode/ProviderBridge.js',
         'lib/vscode/AGENTS.md',
         'lib/vscode/vscode.html',

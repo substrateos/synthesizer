@@ -470,6 +470,254 @@ class Provider /* implements vscode.FileSystemProvider */ {
   }
 }
 
+function parseLocationFromStack(stack, testUri) {
+  if (!stack) return undefined;
+
+  const lines = stack.split('\n');
+  // Look for lines that mention our file. 
+  // Browsers formatted stacks differently, but usually contain "url:line:col"
+  // Since we use 'synth' scheme, look for that.
+  const targetPath = testUri.path;
+
+  // Simple regex to find :line:col
+  // Matches:  at foo (synth:/tests/mytest.js:10:5)  OR  tests/mytest.js:10:5
+  for (const line of lines) {
+    if (line.includes(targetPath)) {
+      // extract :10:5
+      const match = /:(\d+):(\d+)/.exec(line);
+      if (match) {
+        const row = parseInt(match[1]) - 1; // VS Code is 0-indexed
+        const col = parseInt(match[2]) - 1;
+        return new vscode.Range(row, col, row, col + 100);
+      }
+    }
+  }
+  // Fallback: Line 0
+  return new vscode.Range(0, 0, 0, 0);
+}
+
+/**
+ * --- Test Provider ---
+ * Manages the Test Explorer UI.
+ * Groups tests by their 'Target Unit' (testFor property).
+ */
+class TestProvider {
+  #controller;
+  #bridgeClient;
+  #vscode;
+
+  constructor(vscode, bridgeClient) {
+    this.#vscode = vscode;
+    this.#bridgeClient = bridgeClient;
+
+    // factories from vscode namespace
+    this.#controller = vscode.tests.createTestController('synthTests', 'Synth Tests');
+
+    this.#controller.resolveHandler = async (item) => {
+      if (!item) {
+        await this.discoverAllTests();
+      }
+    };
+
+    this.#controller.createRunProfile(
+      'Run Synth Tests',
+      vscode.TestRunProfileKind.Run,
+      (request, token) => this.runHandler(request, token)
+    );
+  }
+
+  /**
+   * Discovers tests and builds the Unit-Centric Tree.
+   */
+  async discoverAllTests() {
+    const { tests } = await this.#bridgeClient.request(id => ({
+      type: 'discoverTests',
+      requestId: id
+    }));
+
+    // We need a map to track created Target nodes so we don't duplicate them
+    const targetNodes = new Map();
+    const newRootItems = [];
+
+    // 1. Build the nodes in memory first
+    for (const { testName, targetName } of tests) {
+      // A. Get or Create Target Node (Container)
+      let targetNode = targetNodes.get(targetName);
+      if (!targetNode) {
+        const uri = this.#vscode.Uri.from({ scheme: 'synth', path: `/${targetName}` });
+        targetNode = this.#controller.createTestItem(targetName, targetName, uri);
+        targetNode.canResolveChildren = false;
+        targetNodes.set(targetName, targetNode);
+        newRootItems.push(targetNode);
+      }
+
+      // B. Create Test Node (Leaf)
+      const testUri = this.#vscode.Uri.from({ scheme: 'synth', path: `/${testName}` });
+      const testItem = this.#controller.createTestItem(testName, testName, testUri);
+
+      // Add leaf to target
+      targetNode.children.add(testItem);
+    }
+
+    // 2. Atomic replacement of the root collection
+    // defined in TestItemCollection.replace(items: readonly TestItem[])
+    this.#controller.items.replace(newRootItems);
+  }
+
+  /**
+   * Handles the Run Request.
+   * @param {vscode.TestRunRequest} request
+   * @param {vscode.CancellationToken} token
+   */
+  async runHandler(request, token) {
+    console.log('runHandler', request, token)
+    const run = this.#controller.createTestRun(request);
+    const testNamesToRun = [];
+    const queue = [];
+
+    // 1. Populate Queue
+    // If request.include is defined, it is an Array<TestItem> (easy iteration).
+    // If undefined, we must iterate the controller.items Collection.
+    if (request.include) {
+      request.include.forEach(item => queue.push(item));
+    } else {
+      // TestItemCollection.forEach gives us the 'item' directly
+      this.#controller.items.forEach(item => queue.push(item));
+    }
+
+    // 2. Process Queue (Flatten hierarchy)
+    while (queue.length > 0) {
+      const item = queue.shift();
+
+      // Check if it has children (Target Node) or is a Test (Leaf Node)
+      if (item.children.size > 0) {
+        // TestItem.children is also a TestItemCollection
+        item.children.forEach(child => queue.push(child));
+      } else {
+        // It is a leaf test
+        // Check exclude list if present
+        if (request.exclude && request.exclude.includes(item)) {
+          continue;
+        }
+
+        testNamesToRun.push(item.id); // ID is the testName
+        run.enqueued(item);
+      }
+    }
+
+    console.log({ testNamesToRun, queue })
+
+    // 3. Execute via Bridge
+    try {
+      const onProgress = (event) => {
+        // Safe lookup
+        const item = event.testId ? this.#findTestItem(event.testId) : undefined;
+
+        switch (event.type) {
+          case 'test-output':
+            // VS Code contract: New lines must be CRLF (\r\n)
+            const text = event.message.replace(/(?<!\r)\n/g, '\r\n');
+            // If item is undefined, output is associated with the run generally
+            run.appendOutput(text, null, item);
+            break;
+
+          case 'test-start':
+            if (item) run.started(item);
+            break;
+
+          case 'test-pass':
+            if (item) run.passed(item, event.duration);
+            break;
+
+          case 'test-fail':
+            // Construct TestMessage
+            let message
+            if (event.expected && event.actual) {
+              message = this.#vscode.TestMessage.diff(
+                event.message,
+                JSON.stringify(event.expected, null, 2),
+                JSON.stringify(event.actual, null, 2),
+              );
+            } else {
+              message = new this.#vscode.TestMessage(event.message);
+            }
+
+            // Parse location from stack trace
+            if (item && event.stack) {
+              const range = parseLocationFromStack(event.stack, item.uri);
+              message.location = new this.#vscode.Location(item.uri, range);
+            } else if (item) {
+              message.location = new this.#vscode.Location(item.uri, new this.#vscode.Position(0, 0));
+            }
+
+            if (item) {
+              // Attempt to provide a location for the error decoration
+              // Default to line 0, char 0
+              message.location = new this.#vscode.Location(
+                item.uri,
+                new this.#vscode.Position(0, 0)
+              );
+              run.failed(item, message, event.duration);
+            } else {
+              // Fallback if we can't find the item in the tree
+              run.appendOutput(`\r\nFailed: ${event.message}\r\n`);
+            }
+            break;
+        }
+      };
+
+      await this.#bridgeClient.request(id => ({
+        type: 'runTests',
+        requestId: id,
+        testIds: testNamesToRun
+      }), { onProgress, token });
+
+    } catch (e) {
+      if (e.name !== 'AbortError') {
+        this.#vscode.window.showErrorMessage(`Test Run Failed: ${e.message}`);
+        run.appendOutput(`\r\nError: ${e.message}\r\n`);
+      }
+    } finally {
+      run.end();
+    }
+  }
+
+  /**
+   * Helper to find a TestItem by its ID (testName).
+   * Performs a deep search of the 2-level hierarchy.
+   * * Note: We cannot use controller.items.get(id) directly because 
+   * the ID might be a child (leaf) of a root item.
+   */
+  #findTestItem(id) {
+    // 1. Check Roots (Targets)
+    // Though our ID scheme uses filenames, so a root might match if it was a test itself?
+    // In current design: Root=Target, Child=Test.
+    // We assume we are looking for leaves mostly.
+
+    // Helper to iterate a collection and return match
+    const searchCollection = (collection) => {
+      let found = collection.get(id);
+      if (found) return found;
+
+      // We must iterate to check children
+      // Using for..of on collection yields [id, item] tuples
+      for (const [_, item] of collection) {
+        if (item.children.size > 0) {
+          const childFound = item.children.get(id);
+          if (childFound) return childFound;
+        }
+      }
+      return undefined;
+    };
+
+    return searchCollection(this.#controller.items);
+  }
+
+  dispose() {
+    this.#controller.dispose();
+  }
+}
+
 const vscode = require('vscode')
 
 async function activate(context) {
@@ -479,6 +727,8 @@ async function activate(context) {
     const bridgeClient = new BridgeClient(port);
 
     const provider = new Provider(vscode, bridgeClient);
+    const testProvider = new TestProvider(vscode, bridgeClient);
+
     bridgeClient.handle('restore', async (message) => await provider.applyRestore());
     bridgeClient.handle('write', (message) => provider.applyWrite(message.data));
 
@@ -493,6 +743,7 @@ async function activate(context) {
 
     context.subscriptions.push(
       provider,
+      testProvider,
       vscode.workspace.registerFileSystemProvider(provider.scheme, provider, { isCaseSensitive: true }),
       vscode.workspace.registerTextSearchProvider(provider.scheme, provider),
       vscode.workspace.registerFileSearchProvider(provider.scheme, provider),
