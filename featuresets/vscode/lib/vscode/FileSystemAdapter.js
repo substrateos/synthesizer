@@ -136,7 +136,7 @@ const SynthProvider = {
      * Efficiently lists direct children of a path.
      */
     doReadDirectory(synth, path) {
-        const prefix = path === '/' ? '' : path.substring(1) + '/';
+        const prefix = (!path || path === '/') ? '' : path.substring(1) + '/';
         const dirPathLength = prefix.length;
         const entries = new Map();
 

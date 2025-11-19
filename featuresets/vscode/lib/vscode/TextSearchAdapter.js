@@ -22,7 +22,7 @@ export default {
      * Performs a text search across all units.
      * Streams matches via the onProgress callback.
      */
-    async doTextSearch(synth, query, options, onProgress, signal) {
+    async doTextSearch(synth, authority, query, options, onProgress, signal) {
         const regex = buildRegex(query);
 
         for (const { name, unit } of synth.query()) {
@@ -48,7 +48,8 @@ export default {
                 if (matches.length > 0) {
                     // Send the richer TextSearchMatch2-style payload
                     onProgress({
-                        uriPath: `/${name}`,
+                        // Construct the full URI including authority so VS Code finds it
+                        uri: `synth://${authority}/${name}`,
                         previewText: lineText,
                         ranges: matches.map(([start, length]) => ({
                             previewRange: { // The range *relative to the previewText*

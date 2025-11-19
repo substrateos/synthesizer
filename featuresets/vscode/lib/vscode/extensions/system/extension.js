@@ -157,73 +157,82 @@ async function handleCommand({ vscode, bridgeClient }, commandId, ...args) {
     console.error(e);
   }
 };
-
 /**
- * --- "Dumb" Cache ---
- * A dedicated class to manage the in-memory file/directory metadata cache.
- * It is a purely reactive reflection of the server's authoritative state.
- * It is ONLY used for 'stat' and client-side 'fileSearch'.
+ * --- Tree (The Shard) ---
+ * Manages file state for a SINGLE authority.
+ * Uses #uriForPath to generate concrete VS Code events.
  */
-class StatCache {
-  #stat = new Map();
-  #uriForPath;
+class Tree {
+  #stat = new Map(); // Map<path, stat>
+  #uriForPath;        // Function: path -> vscode.Uri
   #FileType;
   #FileChangeType;
 
-  constructor(uriForPath, {FileType, FileChangeType}) {
-    this.#FileType = FileType
-    this.#FileChangeType = FileChangeType
+  constructor(uriForPath, { FileType, FileChangeType }) {
     this.#uriForPath = uriForPath;
+    this.#FileType = FileType;
+    this.#FileChangeType = FileChangeType;
+    // Always initialize with a root directory
     this.#stat.set('/', { type: this.#FileType.Directory, ctime: Date.now(), mtime: Date.now(), size: 0 });
   }
 
-  stat(path) {
-    path = path || '/'
-    return this.#stat.get(path);
+  get(path) {
+    return this.#stat.get(path || '/');
   }
 
-  applyState(newState) {
+  /**
+   * Replaces the entire tree state (Restore event).
+   * Correctly diffs against previous state to send Delete events.
+   */
+  replace(state) {
     const notifications = [];
+    const now = Date.now();
+
+    // Snapshot old paths to track deletions
     const oldPaths = new Set(this.#stat.keys());
-    const newStat = new Map();
-    newStat.set('/', this.#stat.get('/')); // Keep root
-    oldPaths.delete('/');
+    oldPaths.delete('/'); // Root is persistent
 
-    for (const [path, metadata] of newState.entries()) {
+    // Clear and Reset Root
+    this.#stat.clear();
+    this.#stat.set('/', { type: this.#FileType.Directory, ctime: now, mtime: now, size: 0 });
+    notifications.push({ uri: this.#uriForPath('/'), type: this.#FileChangeType.Changed });
+
+    // Process New State
+    for (const [path, metadata] of state.entries()) {
       const uri = this.#uriForPath(path);
-      const oldEntry = this.#stat.get(path);
-
       const newEntry = {
         type: metadata.type === 'directory' ? this.#FileType.Directory : this.#FileType.File,
-        ctime: metadata.ctime,
-        mtime: metadata.mtime,
-        size: metadata.size,
-        unitType: metadata.unitType
+        ctime: metadata.ctime, mtime: metadata.mtime, size: metadata.size, unitType: metadata.unitType
       };
-      newStat.set(path, newEntry);
+      this.#stat.set(path, newEntry);
 
-      if (oldEntry) {
-        if (oldEntry.mtime !== newEntry.mtime || oldEntry.size !== newEntry.size) {
-          notifications.push({ uri, type: this.#FileChangeType.Changed });
-        }
+      if (oldPaths.has(path)) {
+        // Existed before: Change
+        notifications.push({ uri, type: this.#FileChangeType.Changed });
+        oldPaths.delete(path); // Mark as handled
       } else {
+        // New file: Create
         notifications.push({ uri, type: this.#FileChangeType.Created });
       }
-      oldPaths.delete(path);
     }
 
+    // Process Deletions
+    // Any path remaining in oldPaths was not in the new state
     for (const path of oldPaths) {
-      notifications.push({ uri: this.#uriForPath(path), type: this.#FileChangeType.Deleted });
+      notifications.push({
+        uri: this.#uriForPath(path),
+        type: this.#FileChangeType.Deleted
+      });
     }
 
-    this.#stat = newStat;
-    notifications.push({ uri: this.#uriForPath('/'), type: this.#FileChangeType.Changed });
     return notifications;
   }
 
-  applyWrite(data) {
+  /**
+   * Updates specific files (Write event).
+   */
+  update({ set, deleted }) {
     const notifications = [];
-    const { set, deleted } = data;
 
     if (deleted) {
       for (const path of deleted) {
@@ -240,231 +249,234 @@ class StatCache {
       for (const [path, metadata] of set.entries()) {
         const uri = this.#uriForPath(path);
         const oldEntry = this.#stat.get(path);
-
         const newEntry = {
           type: metadata.type === 'directory' ? this.#FileType.Directory : this.#FileType.File,
-          ctime: metadata.ctime, mtime: metadata.mtime, size: metadata.size,
-          unitType: metadata.unitType
+          ctime: metadata.ctime, mtime: metadata.mtime, size: metadata.size, unitType: metadata.unitType
         };
         this.#stat.set(path, newEntry);
 
         if (oldEntry) {
-          notifications.push({ uri, type: this.#FileChangeType.Changed });
+          if (oldEntry.mtime !== newEntry.mtime || oldEntry.size !== newEntry.size) {
+            notifications.push({ uri, type: this.#FileChangeType.Changed });
+          }
         } else {
           notifications.push({ uri, type: this.#FileChangeType.Created });
         }
       }
     }
 
-    const parents = new Set();
-    for (const n of notifications) {
-      const parent = getParentPath(n.uri.path);
-      if (parent) parents.add(parent);
-    }
-    for (const p of parents) {
-      notifications.push({
-        uri: this.#uriForPath(path),
-        type: this.#FileChangeType.Changed
-      });
-    }
+    // Always notify root change
+    notifications.push({
+      uri: this.#uriForPath('/'),
+      type: this.#FileChangeType.Changed
+    });
 
     return notifications;
   }
 
-  * statEntries() {
-    for (const [path, stat] of this.#stat.entries()) {
-      yield [path, stat];
+  /**
+   * Iterator for search.
+   */
+  * entries() {
+    for (const entry of this.#stat.entries()) {
+      yield entry;
     }
   }
 }
 
-function getParentPath(path) {
-  const cleanPath = (path.endsWith('/') && path.length > 1) ? path.substring(0, path.length - 1) : path;
-  const lastSlash = cleanPath.lastIndexOf('/');
-  if (lastSlash <= 0) return '/';
-  return cleanPath.substring(0, lastSlash);
-}
-
 
 /**
- * A FileSystemProvider that acts as a thin "controller".
- * It delegates state management to StatCache and async logic
- * to BridgeClient.
+ * --- Forest (The Manager) ---
+ * Routes requests to the correct Tree based on URI Authority.
  */
-class Provider /* implements vscode.FileSystemProvider */ {
+class Forest {
+  #trees = new Map(); // Map<authority, Tree>
+  #vscode;
+
+  constructor(vscode) {
+    this.#vscode = vscode;
+  }
+
+  /**
+   * Lazy-loads a Tree for the given authority.
+   * Injects the specific URI factory for that authority.
+   */
+  #getTree(authority) {
+    if (!this.#trees.has(authority)) {
+      const uriFactory = (path) => this.#vscode.Uri.from({ scheme: 'synth', authority, path });
+      this.#trees.set(authority, new Tree(uriFactory, this.#vscode));
+    }
+    return this.#trees.get(authority);
+  }
+
+  stat(uri) {
+    const tree = this.#getTree(uri.authority);
+    return tree.get(uri.path);
+  }
+
+  applyState(authority, state) {
+    // Tree returns fully formed { uri, type } events now
+    return this.#getTree(authority).replace(state);
+  }
+
+  applyWrite(authority, data) {
+    return this.#getTree(authority).update(data);
+  }
+
+  /**
+   * Global iterator for "File Search" across all trees.
+   * Yields [fullUriString, stat]
+   */
+  * statEntries() {
+    for (const [authority, tree] of this.#trees.entries()) {
+      for (const [path, stat] of tree.entries()) {
+        const uriStr = `synth://${authority}${path}`;
+        yield [uriStr, stat];
+      }
+    }
+  }
+}
+
+class Provider {
   static scheme = 'synth';
   onDidChangeFile;
-  #authority;
   #vscode;
   #emitter;
-  #watchers = new Map();
   #cache;
   #bridgeClient;
 
   constructor(vscode, bridgeClient) {
-    if (!vscode) throw new Error('A vscode module instance must be provided.');
-    if (!bridgeClient) throw new Error('A BridgeClient instance must be provided.');
-    this.#authority = undefined
     this.#vscode = vscode;
     this.#bridgeClient = bridgeClient;
     this.#emitter = new vscode.EventEmitter();
-    this.#cache = new StatCache(path => this.#vscode.Uri.from({scheme: this.scheme, authority: this.#authority, path}), vscode);
+    this.#cache = new Forest(vscode);
     this.onDidChangeFile = this.#emitter.event;
   }
 
   dispose() {
     this.#emitter.dispose();
-    this.#watchers.clear();
     this.#bridgeClient.dispose();
   }
 
-  async applyRestore() {
+  async applyRestore(authority) {
+    const auth = authority || 'root';
     try {
-      const data = await this.#bridgeClient.request(id => ({ type: 'getState', requestId: id }));
-      const notifications = this.#cache.applyState(data.state);
+      const uri = `synth://${auth}/`;
+      const data = await this.#bridgeClient.request(id => ({ type: 'getState', uri, requestId: id }));
+      const notifications = this.#cache.applyState(auth, data.state);
       this.#emitter.fire(notifications);
     } catch (e) {
-      console.error("Failed to restore state:", e);
+      console.error(`Failed to restore state for ${auth}:`, e);
     }
   }
 
-  applyWrite(data) {
-    const notifications = this.#cache.applyWrite(data);
-    if (notifications.length > 0) {
-      this.#emitter.fire(notifications);
-    }
+  applyWrite(authority, data) {
+    const notifications = this.#cache.applyWrite(authority || 'root', data);
+    if (notifications.length > 0) this.#emitter.fire(notifications);
   }
 
   get scheme() { return this.constructor.scheme }
 
-  watch(uri, options) {
-    const path = uri.path;
-    let watcherCount = this.#watchers.get(path) || 0;
-    this.#watchers.set(path, ++watcherCount);
-    return {
-      dispose: () => {
-        let count = this.#watchers.get(path) || 0;
-        if (count > 1) this.#watchers.set(path, --count);
-        else this.#watchers.delete(path);
-      }
-    };
-  }
+  watch(uri) { return { dispose: () => { } }; }
 
   stat(uri) {
-    const entry = this.#cache.stat(uri.path);
+    const entry = this.#cache.stat(uri);
     if (entry) return entry;
     throw this.#vscode.FileSystemError.FileNotFound(uri);
   }
 
   async readDirectory(uri) {
-    this.stat(uri); // Fail fast
-    const path = uri.path || '/'
-    const data = await this.#bridgeClient.request(id => ({ type: 'readDirectory', path, requestId: id }));
-    return data.entries.map(([name, type]) => {
-      return [name, type === 'directory' ? this.#vscode.FileType.Directory : this.#vscode.FileType.File];
-    });
+    // Stat first to ensure existence (Forest lazy loads, so this is mostly a check)
+    this.stat(uri);
+
+    const data = await this.#bridgeClient.request(id => ({
+      type: 'readDirectory',
+      uri: uri.toString(),
+      requestId: id
+    }));
+    return data.entries.map(([name, type]) => [
+      name,
+      type === 'directory' ? this.#vscode.FileType.Directory : this.#vscode.FileType.File
+    ]);
   }
 
   async createDirectory(uri) {
-    await this.#bridgeClient.request(id => ({ type: 'createDirectory', requestId: id, path: uri.path }));
+    await this.#bridgeClient.request(id => ({ type: 'createDirectory', uri: uri.toString(), requestId: id }));
   }
 
   async readFile(uri) {
-    this.stat(uri);
-    const data = await this.#bridgeClient.request(id => ({ type: 'readFile', path: uri.path, requestId: id }));
+    const data = await this.#bridgeClient.request(id => ({ type: 'readFile', uri: uri.toString(), requestId: id }));
     return new TextEncoder().encode(data.content);
   }
 
   async writeFile(uri, content, options) {
-    const contentString = new TextDecoder().decode(content);
-    let typeHint;
-    const openDoc = this.#vscode.workspace.textDocuments.find(
-      doc => doc.uri.path === uri.path
-    );
-    if (openDoc) typeHint = openDoc.languageId;
-
+    const openDoc = this.#vscode.workspace.textDocuments.find(d => d.uri.toString() === uri.toString());
     await this.#bridgeClient.request(id => ({
       type: 'writeFile',
       requestId: id,
-      path: uri.path,
-      content: contentString,
-      typeHint: typeHint,
-      options: options
+      uri: uri.toString(),
+      content: new TextDecoder().decode(content),
+      typeHint: openDoc?.languageId,
+      options
     }));
   }
 
   async delete(uri, options) {
-    this.stat(uri);
-    await this.#bridgeClient.request(id => ({
-      type: 'delete',
-      requestId: id,
-      path: uri.path,
-      options: options
-    }));
+    await this.#bridgeClient.request(id => ({ type: 'delete', uri: uri.toString(), options, requestId: id }));
   }
 
   async rename(oldUri, newUri, options) {
-    this.stat(oldUri);
     await this.#bridgeClient.request(id => ({
       type: 'rename',
-      requestId: id,
-      oldPath: oldUri.path,
-      newPath: newUri.path,
-      options: options,
+      oldUri: oldUri.toString(),
+      newUri: newUri.toString(),
+      options,
+      requestId: id
     }));
   }
 
   async provideTextSearchResults(query, options, progress, token) {
-    const onProgress = (payload) => {
-      progress.report({
-        uri: this.#vscode.Uri.from({ scheme: this.scheme, authority: this.#authority, path: payload.uriPath }),
+    const contextUri = options.folder || this.#vscode.workspace.workspaceFolders?.[0]?.uri;
 
-        ranges: payload.ranges.map(r => new this.#vscode.Range(
-          r.sourceRange.start.line,
-          r.sourceRange.start.character,
-          r.sourceRange.end.line,
-          r.sourceRange.end.character
-        )),
-
-        preview: {
-          text: payload.previewText,
-          // The ranges *relative to the preview text*
-          matches: payload.ranges.map(r => new this.#vscode.Range(
-            r.previewRange.start.line,
-            r.previewRange.start.character,
-            r.previewRange.end.line,
-            r.previewRange.end.character
-          )),
-        }
-      });
-    };
+    if (!contextUri) {
+      return { limitHit: false };
+    }
 
     return await this.#bridgeClient.request(id => ({
       type: 'provideTextSearchResults',
       requestId: id,
+      uri: contextUri.toString(),
       query: {
         pattern: query.pattern,
         isRegExp: !!query.isRegExp,
         isCaseSensitive: !!query.isCaseSensitive,
         isWordMatch: !!query.isWordMatch
       },
-      options: {
-        excludes: options.excludes,
-        includes: options.includes,
-        maxResults: options.maxResults
+      options
+    }), {
+      token,
+      onProgress: (payload) => {
+        progress.report({
+          uri: this.#vscode.Uri.parse(payload.uri),
+          ranges: payload.ranges.map(r => new this.#vscode.Range(r.sourceRange.start.line, r.sourceRange.start.character, r.sourceRange.end.line, r.sourceRange.end.character)),
+          preview: {
+            text: payload.previewText,
+            matches: payload.ranges.map(r => new this.#vscode.Range(r.previewRange.start.line, r.previewRange.start.character, r.previewRange.end.line, r.previewRange.end.character))
+          }
+        });
       }
-    }), { onProgress, token });
+    });
   }
 
   provideFileSearchResults(query, options, token) {
     const results = [];
     const searchPattern = query.pattern.toLowerCase();
-    for (const [path, stat] of this.#cache.statEntries()) {
+    // Iterates the Forest to search all Trees
+    for (const [uriStr, stat] of this.#cache.statEntries()) {
       if (token.isCancellationRequested) break;
-      if (stat.type === this.#vscode.FileType.File && path.toLowerCase().includes(searchPattern)) {
-        results.push(this.#vscode.Uri.from({ scheme: this.scheme, authority: this.#authority, path: path }));
+      if (stat.type === this.#vscode.FileType.File && uriStr.toLowerCase().includes(searchPattern)) {
+        results.push(this.#vscode.Uri.parse(uriStr));
       }
-      if (options.maxResults && results.length >= options.maxResults) break;
     }
     return Promise.resolve(results);
   }
@@ -499,7 +511,7 @@ function parseLocationFromStack(stack, testUri) {
 /**
  * --- Test Provider ---
  * Manages the Test Explorer UI.
- * Groups tests by their 'Target Unit' (testFor property).
+ * Groups tests by Authority (Root) -> Target Unit -> Test File.
  */
 class TestProvider {
   #controller;
@@ -510,7 +522,6 @@ class TestProvider {
     this.#vscode = vscode;
     this.#bridgeClient = bridgeClient;
 
-    // factories from vscode namespace
     this.#controller = vscode.tests.createTestController('synthTests', 'Synth Tests');
 
     this.#controller.resolveHandler = async (item) => {
@@ -527,190 +538,196 @@ class TestProvider {
   }
 
   /**
-   * Discovers tests and builds the Unit-Centric Tree.
+   * Discovers tests across ALL mounted workspace folders (Authorities).
    */
   async discoverAllTests() {
-    const { tests } = await this.#bridgeClient.request(id => ({
-      type: 'discoverTests',
-      requestId: id
-    }));
-
-    // We need a map to track created Target nodes so we don't duplicate them
-    const targetNodes = new Map();
+    // 1. Get all mounted roots
+    const folders = this.#vscode.workspace.workspaceFolders || [];
     const newRootItems = [];
 
-    // 1. Build the nodes in memory first
-    for (const { testName, targetName } of tests) {
-      // A. Get or Create Target Node (Container)
-      let targetNode = targetNodes.get(targetName);
-      if (!targetNode) {
-        const uri = this.#vscode.Uri.from({ scheme: 'synth', path: `/${targetName}` });
-        targetNode = this.#controller.createTestItem(targetName, targetName, uri);
-        targetNode.canResolveChildren = false;
-        targetNodes.set(targetName, targetNode);
-        newRootItems.push(targetNode);
+    // 2. Query each root in parallel
+    await Promise.all(folders.map(async (folder) => {
+      const authority = folder.uri.authority; // e.g., "apps-frontend"
+
+      // Create a container item for this Root (Authority)
+      // This distinguishes tests in 'Frontend' from 'Backend' visually
+      const rootItem = this.#controller.createTestItem(authority, folder.name, folder.uri);
+      rootItem.canResolveChildren = false;
+      newRootItems.push(rootItem);
+
+      try {
+        // Request discovery specifically for this authority
+        const { tests } = await this.#bridgeClient.request(id => ({
+          type: 'discoverTests',
+          requestId: id,
+          uri: folder.uri.toString() // Route to specific synth
+        }));
+
+        // Build the tree for this authority
+        const targetNodes = new Map();
+
+        for (const { testName, targetName } of tests) {
+          // A. Target Node (Grouping)
+          // ID must be unique globally, so prefix with authority
+          const targetId = `${authority}:${targetName}`;
+          let targetNode = targetNodes.get(targetName);
+
+          if (!targetNode) {
+            const uri = this.#vscode.Uri.from({ scheme: 'synth', authority, path: `/${targetName}` });
+            targetNode = this.#controller.createTestItem(targetId, targetName, uri);
+            targetNodes.set(targetName, targetNode);
+            rootItem.children.add(targetNode);
+          }
+
+          // B. Test Node (Leaf)
+          const testId = `${authority}:${testName}`;
+          const testUri = this.#vscode.Uri.from({ scheme: 'synth', authority, path: `/${testName}` });
+          const testItem = this.#controller.createTestItem(testId, testName, testUri);
+
+          targetNode.children.add(testItem);
+        }
+      } catch (e) {
+        console.error(`Failed to discover tests for ${authority}:`, e);
+        rootItem.error = e.message;
       }
+    }));
 
-      // B. Create Test Node (Leaf)
-      const testUri = this.#vscode.Uri.from({ scheme: 'synth', path: `/${testName}` });
-      const testItem = this.#controller.createTestItem(testName, testName, testUri);
-
-      // Add leaf to target
-      targetNode.children.add(testItem);
-    }
-
-    // 2. Atomic replacement of the root collection
-    // defined in TestItemCollection.replace(items: readonly TestItem[])
+    // 3. Replace items
     this.#controller.items.replace(newRootItems);
   }
 
   /**
    * Handles the Run Request.
-   * @param {vscode.TestRunRequest} request
-   * @param {vscode.CancellationToken} token
+   * Groups items by Authority and dispatches separate runs.
    */
   async runHandler(request, token) {
-    console.log('runHandler', request, token)
     const run = this.#controller.createTestRun(request);
-    const testNamesToRun = [];
     const queue = [];
 
     // 1. Populate Queue
-    // If request.include is defined, it is an Array<TestItem> (easy iteration).
-    // If undefined, we must iterate the controller.items Collection.
     if (request.include) {
       request.include.forEach(item => queue.push(item));
     } else {
-      // TestItemCollection.forEach gives us the 'item' directly
       this.#controller.items.forEach(item => queue.push(item));
     }
 
-    // 2. Process Queue (Flatten hierarchy)
+    // 2. Flatten and Group by Authority
+    // Map<Authority, Set<TestName>>
+    const testsByAuthority = new Map();
+
     while (queue.length > 0) {
       const item = queue.shift();
 
-      // Check if it has children (Target Node) or is a Test (Leaf Node)
       if (item.children.size > 0) {
-        // TestItem.children is also a TestItemCollection
         item.children.forEach(child => queue.push(child));
       } else {
-        // It is a leaf test
-        // Check exclude list if present
-        if (request.exclude && request.exclude.includes(item)) {
-          continue;
+        if (request.exclude && request.exclude.includes(item)) continue;
+
+        // The item.uri.authority tells us which Synth owns this test
+        const auth = item.uri.authority;
+        if (!testsByAuthority.has(auth)) {
+          testsByAuthority.set(auth, new Set());
         }
 
-        testNamesToRun.push(item.id); // ID is the testName
+        // We need the raw name (e.g., "src/foo.test.js") for the adapter,
+        // NOT the global ID we created earlier.
+        // Since item.label is the testName, use that.
+        testsByAuthority.get(auth).add(item.label);
+
         run.enqueued(item);
       }
     }
 
-    console.log({ testNamesToRun, queue })
+    // 3. Execute Batches
+    const promises = [];
 
-    // 3. Execute via Bridge
-    try {
-      const onProgress = (event) => {
-        // Safe lookup
-        const item = event.testId ? this.#findTestItem(event.testId) : undefined;
+    for (const [authority, testSet] of testsByAuthority) {
+      const testNamesToRun = Array.from(testSet);
+      const uriStr = `synth://${authority}/`; // Routing hint
 
-        switch (event.type) {
-          case 'test-output':
-            // VS Code contract: New lines must be CRLF (\r\n)
-            const text = event.message.replace(/(?<!\r)\n/g, '\r\n');
-            // If item is undefined, output is associated with the run generally
-            run.appendOutput(text, null, item);
-            break;
-
-          case 'test-start':
-            if (item) run.started(item);
-            break;
-
-          case 'test-pass':
-            if (item) run.passed(item, event.duration);
-            break;
-
-          case 'test-fail':
-            // Construct TestMessage
-            let message
-            if (event.expected && event.actual) {
-              message = this.#vscode.TestMessage.diff(
-                event.message,
-                JSON.stringify(event.expected, null, 2),
-                JSON.stringify(event.actual, null, 2),
-              );
-            } else {
-              message = new this.#vscode.TestMessage(event.message);
-            }
-
-            // Parse location from stack trace
-            if (item && event.stack) {
-              const range = parseLocationFromStack(event.stack, item.uri);
-              message.location = new this.#vscode.Location(item.uri, range);
-            } else if (item) {
-              message.location = new this.#vscode.Location(item.uri, new this.#vscode.Position(0, 0));
-            }
-
-            if (item) {
-              // Attempt to provide a location for the error decoration
-              // Default to line 0, char 0
-              message.location = new this.#vscode.Location(
-                item.uri,
-                new this.#vscode.Position(0, 0)
-              );
-              run.failed(item, message, event.duration);
-            } else {
-              // Fallback if we can't find the item in the tree
-              run.appendOutput(`\r\nFailed: ${event.message}\r\n`);
-            }
-            break;
-        }
-      };
-
-      await this.#bridgeClient.request(id => ({
+      const task = this.#bridgeClient.request(id => ({
         type: 'runTests',
         requestId: id,
+        uri: uriStr, // Route to the correct synth
         testIds: testNamesToRun
-      }), { onProgress, token });
+      }), {
+        token,
+        onProgress: (event) => this.#handleTestProgress(run, authority, event)
+      }).catch(e => {
+        if (e.name !== 'AbortError') {
+          this.#vscode.window.showErrorMessage(`Test Run Failed (${authority}): ${e.message}`);
+          run.appendOutput(`\r\nError in ${authority}: ${e.message}\r\n`);
+        }
+      });
 
-    } catch (e) {
-      if (e.name !== 'AbortError') {
-        this.#vscode.window.showErrorMessage(`Test Run Failed: ${e.message}`);
-        run.appendOutput(`\r\nError: ${e.message}\r\n`);
-      }
-    } finally {
-      run.end();
+      promises.push(task);
     }
+
+    await Promise.all(promises);
+    run.end();
   }
 
   /**
-   * Helper to find a TestItem by its ID (testName).
-   * Performs a deep search of the 2-level hierarchy.
-   * * Note: We cannot use controller.items.get(id) directly because 
-   * the ID might be a child (leaf) of a root item.
+   * Processes events from the bridge and updates VS Code UI.
    */
-  #findTestItem(id) {
-    // 1. Check Roots (Targets)
-    // Though our ID scheme uses filenames, so a root might match if it was a test itself?
-    // In current design: Root=Target, Child=Test.
-    // We assume we are looking for leaves mostly.
+  #handleTestProgress(run, authority, event) {
+    // Reconstruct the unique ID we used during discovery: "authority:testName"
+    const uniqueId = event.testId ? `${authority}:${event.testId}` : undefined;
+    const item = uniqueId ? this.#findTestItem(uniqueId) : undefined;
 
-    // Helper to iterate a collection and return match
-    const searchCollection = (collection) => {
-      let found = collection.get(id);
-      if (found) return found;
+    switch (event.type) {
+      case 'test-output':
+        const text = event.message.replace(/(?<!\r)\n/g, '\r\n');
+        run.appendOutput(text, null, item);
+        break;
+      case 'test-start':
+        if (item) run.started(item);
+        break;
+      case 'test-pass':
+        if (item) run.passed(item, event.duration);
+        break;
+      case 'test-fail':
+        let message;
+        if (event.expected && event.actual) {
+          message = this.#vscode.TestMessage.diff(
+            event.message,
+            JSON.stringify(event.expected, null, 2),
+            JSON.stringify(event.actual, null, 2),
+          );
+        } else {
+          message = new this.#vscode.TestMessage(event.message);
+        }
 
-      // We must iterate to check children
-      // Using for..of on collection yields [id, item] tuples
-      for (const [_, item] of collection) {
-        if (item.children.size > 0) {
-          const childFound = item.children.get(id);
-          if (childFound) return childFound;
+        if (item) {
+          // Parse location from stack if possible
+          if (event.stack) {
+            const range = parseLocationFromStack(event.stack, item.uri);
+            message.location = new this.#vscode.Location(item.uri, range);
+          } else {
+            message.location = new this.#vscode.Location(item.uri, new this.#vscode.Position(0, 0));
+          }
+          run.failed(item, message, event.duration);
+        } else {
+          run.appendOutput(`\r\nFailed: ${event.message}\r\n`);
+        }
+        break;
+    }
+  }
+
+  // Helper to find item in the 3-level hierarchy (Root -> Target -> Test)
+  #findTestItem(uniqueId) {
+    // BFS or recursive search
+    const search = (collection) => {
+      const direct = collection.get(uniqueId);
+      if (direct) return direct;
+      for (const [_, child] of collection) {
+        if (child.children.size > 0) {
+          const found = search(child.children);
+          if (found) return found;
         }
       }
-      return undefined;
     };
-
-    return searchCollection(this.#controller.items);
+    return search(this.#controller.items);
   }
 
   dispose() {
@@ -729,28 +746,47 @@ async function activate(context) {
     const provider = new Provider(vscode, bridgeClient);
     const testProvider = new TestProvider(vscode, bridgeClient);
 
-    bridgeClient.handle('restore', async (message) => await provider.applyRestore());
-    bridgeClient.handle('write', (message) => provider.applyWrite(message.data));
+    // Handle multi-root events
+    bridgeClient.handle('restore', async (msg) => await provider.applyRestore(msg.authority));
+    bridgeClient.handle('write', (msg) => provider.applyWrite(msg.authority, msg.data));
 
     bridgeClient.listen();
 
-    // load initial state
-    await provider.applyRestore();
+    // --- MULTI-ROOT STARTUP SEQUENCE ---
 
-    // grab list of commands from extension package.json
-    const pkgJson = context.extension.packageJSON;
-    const commands = (pkgJson.contributes?.commands || []).map(({command}) => command)
-
+    // Register Providers
     context.subscriptions.push(
       provider,
       testProvider,
       vscode.workspace.registerFileSystemProvider(provider.scheme, provider, { isCaseSensitive: true }),
       vscode.workspace.registerTextSearchProvider(provider.scheme, provider),
       vscode.workspace.registerFileSearchProvider(provider.scheme, provider),
-      ...commands.map(commandId => vscode.commands.registerCommand(commandId, handleCommand.bind(null, { vscode, bridgeClient }, commandId))),
     );
+
+    // Discover Roots from Host
+    const { roots } = await bridgeClient.request(id => ({ type: 'getRoots', requestId: id }));
+
+    // Mount discovered synths as Workspace Folders
+    const workspaceFolders = roots.map(root => ({
+      uri: vscode.Uri.from({ scheme: 'synth', authority: root.authority, path: '/' }),
+      name: root.name // e.g. "/" or "/apps/frontend"
+    }));
+
+    // Replace current folders (if any) with the new fleet
+    const currentCount = vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders.length : 0;
+    vscode.workspace.updateWorkspaceFolders(0, currentCount, ...workspaceFolders);
+
+    // Initialize State for all roots in parallel
+    await Promise.all(roots.map(root => provider.applyRestore(root.authority)));
+
+    // Register Commands
+    const commands = (context.extension.packageJSON.contributes?.commands || []).map(c => c.command);
+    context.subscriptions.push(
+      ...commands.map(id => vscode.commands.registerCommand(id, handleCommand.bind(null, { vscode, bridgeClient }, id)))
+    );
+
   } catch (e) {
-    vscode.window.showErrorMessage(`Failed to initialize Synth workspace: ${e.message}`);
+    vscode.window.showErrorMessage(`Synth Init Error: ${e.message}`);
     console.error(e);
   }
 }
