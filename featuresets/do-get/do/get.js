@@ -45,6 +45,12 @@ export default async function (handlerInputs) {
         }
     }
     if (!getter) {
+        getterName = `do/get/default`
+        if (workspace.has(getterName)) {
+            getter = await workspace.get(getterName)
+        }
+    }
+    if (!getter) {
         return undefined
     }
 

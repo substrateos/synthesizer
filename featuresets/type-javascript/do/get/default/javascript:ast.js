@@ -8,6 +8,6 @@ export default async function (handlerInputs) {
     const {action, unit, name, workspace} = this
     const {attribute} = handlerInputs ?? {}
 
-    const source = unit?.source
+    const source = await workspace.getAttribute({unit, name, attribute: 'javascript:source'})
     return parse({source})
 }

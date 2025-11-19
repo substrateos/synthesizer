@@ -12,11 +12,11 @@ export const attributes = {
  * }} An object containing the entry point blob URL, the generated import map,
  * and a function to revoke all created blob URLs.
  */
-export default function prepareDynamicImports({createBlobURL, entryName, entrySource, entryURL, importSources={}, scopedImports={}, scopes={}}) {
+export default function prepareDynamicImports({createURL, entryName, entrySource, entryURL, importSources={}, scopedImports={}, scopes={}}) {
   const importURLs = Object.fromEntries(
     Object.entries(importSources).map(([specifier, source]) => [
       specifier,
-      createBlobURL(`import/${specifier}`, [source], 'text/javascript'),
+      createURL(`import/${specifier}`, [source], 'text/javascript'),
     ])
   );
 
@@ -27,7 +27,7 @@ export default function prepareDynamicImports({createBlobURL, entryName, entrySo
   };
 
   if (entrySource) {
-    entryURL = createBlobURL('entry', [entrySource], 'text/javascript');
+    entryURL = createURL('entry', [entrySource], 'text/javascript');
 
     importMap.scopes[entryURL] = {
       ...importURLs,
@@ -39,6 +39,8 @@ export default function prepareDynamicImports({createBlobURL, entryName, entrySo
         [entryName]: entryURL,
       }
     }
+  } else {
+    importMap.imports = importURLs
   }
 
   return { entryURL, importMap };

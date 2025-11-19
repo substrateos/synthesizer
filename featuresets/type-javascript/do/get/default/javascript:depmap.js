@@ -9,7 +9,7 @@ export default async function (handlerInputs) {
     const {action, unit, name, workspace} = this
     const {attribute} = handlerInputs ?? {}
 
-    const { ast, hasModuleSyntax } = await workspace.getAttribute({ unit, name, attribute: 'ast' })
+    const { ast, hasModuleSyntax } = await workspace.getAttribute({ unit, name, attribute: 'javascript:ast' })
 
     const depmap = {}
 
