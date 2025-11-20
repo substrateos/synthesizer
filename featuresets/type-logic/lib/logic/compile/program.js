@@ -1,23 +1,45 @@
-import {parse as acornParse} from "@/lib/logic/acorn@8.15.0.js";
+import parseLogic from "@/lib/logic/parser.js";
 import analyzeProgram from "@/lib/logic/compile/analyze/program.js";
-import transformProgram from "@/lib/logic/compile/transform/program.js";
-import unify, { resolve } from "@/lib/logic/unify.js";
-import { resolverTags, resolverTag, nameTag, _ } from "@/lib/logic/tags.js";
-import ArrayPattern from "@/lib/logic/unify/ArrayPattern.js";
-import ObjectPattern from "@/lib/logic/unify/ObjectPattern.js";
-import Value from "@/lib/logic/unify/Value.js";
+import transformScript from "@/lib/logic/compile/transform/script.js";
+import transformModule from "@/lib/logic/compile/transform/module.js";
+import runtime from "@/lib/logic/runtime.js"
 
-export default function compileProgram(sourceCode) {
-    const ast = acornParse(sourceCode, { ecmaVersion: 2022, sourceType: 'script' });
+export default function compileProgram({ source, outputFormat }) {
+    // ast: masked AST (script mode)
+    // imports: extracted import metadata
+    // exports: extracted export metadata (from module mode)
+    const { ast, imports, exports: parserExports } = parseLogic(source);
 
-    // Discover all clauses and resolves their lexical scopes.
-    const { isModule, topLevelScope } = analyzeProgram(ast, sourceCode);
+    // We pass parserExports so the analyzer knows if explicit exports exist.
+    // The analyzer returns a normalized 'exports' list (populating defaults if needed).
+    const { isModule, topLevelScope, exports: analyzedExports } = analyzeProgram(ast, source, imports, parserExports);
 
-    // Transform the topLevelScope into JavaScript.
-    const generatedSource = transformProgram(topLevelScope);
+    if (!outputFormat) {
+        outputFormat = isModule ? 'module' : 'script'
+    }
 
-    return {
+    let transformProgram
+    switch (outputFormat) {
+        case 'module':
+            transformProgram = transformModule
+            break
+        case 'script':
+            transformProgram = transformScript
+            break
+        default:
+            throw new Error('outputFormat must be either module or script')
+    }
+
+    const generatedSource = transformProgram({ topLevelScope, imports, exports: analyzedExports });
+
+    const result = {
         generatedSource,
-        utils: { unify, resolve, resolverTags, resolverTag, nameTag, ArrayPattern, ObjectPattern, Value, _ },
+        imports,
+        exports: analyzedExports,
+        isModule,
+        outputFormat,
+        runtime,
     };
+
+    return result;
 }

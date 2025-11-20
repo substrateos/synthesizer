@@ -4,6 +4,12 @@ import ObjectPattern from "@/lib/logic/unify/ObjectPattern.js";
 
 import logic from "@/lib/logic/logic.js"
 
+// Used within tests...
+const _ = Promise.all([
+    import("@/lib/logic/testShim/files/simple.logic.js"),
+    import("@/lib/logic/testShim/files/math.js"),
+])
+
 const {
     all,
     solve,

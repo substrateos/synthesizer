@@ -5,9 +5,11 @@ export default {
 
         'lib/logic/README.md',
         'lib/logic/logic.js',
+        'lib/logic/runtime.js',
         'lib/logic/tags.js',
 
         'do/get/logic/evaluation.js',
+        'do/get/logic/javascript:source.js',
 
         'lib/logic/acorn@8.15.0.js',
         'lib/logic/acorn-walk@8.3.4.js',
@@ -16,10 +18,15 @@ export default {
         'lib/logic/solution.js',
         'lib/logic/GoalSeries.js',
         'lib/logic/all.js',
+        'lib/logic/parser.js',
+        'lib/logic/runtime.js',
         'lib/logic/solve.js',
         'lib/logic/repr.js',
         'lib/logic/tracer.js',
         'lib/logic/testShim.js',
+        'lib/logic/testShim/files/importer.logic.js',
+        'lib/logic/testShim/files/simple.logic.js',
+        'lib/logic/testShim/files/math.js',
         'lib/logic/testShim/tests/closure.js',
         'lib/logic/testShim/tests/closure-as-data.js',
         'lib/logic/testShim/tests/shadowing.js',
@@ -49,6 +56,7 @@ export default {
 
         'lib/logic/compile/program.js',
 
+        'lib/logic/compile/analyze/util/mangleImport.js',
         'lib/logic/compile/analyze/util/mangleName.js',
         'lib/logic/compile/analyze/util/findDeclaredVariables.js',
         'lib/logic/compile/analyze/util/findDeclaredFunctions.js',
@@ -66,7 +74,8 @@ export default {
         'lib/logic/compile/transform/nodes/expressions/CallExpression.js',
         'lib/logic/compile/transform/nodes/expressions/UnaryExpression.js',
         'lib/logic/compile/transform/nodes/expression.js',
-        'lib/logic/compile/transform/program.js',
+        'lib/logic/compile/transform/script.js',
+        'lib/logic/compile/transform/module.js',
         'lib/logic/compile/transform/util/findFreeVariables.js',
 
         'lib/logic/compile/transform/Emitter.js',

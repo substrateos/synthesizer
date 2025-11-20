@@ -1,16 +1,7 @@
 import jsExpr from "@/lib/logic/compile/transform/exprs/js.js";
 import findFreeVariables from "@/lib/logic/compile/transform/util/findFreeVariables.js";
+import groundExpr from "@/lib/logic/compile/transform/exprs/ground.js";
 
-/**
- * Transforms a Logic.js(...) call.
- * This built-in is only valid on the RHS of an assignment.
- * It is a "complex" built-in and returns a full IR array.
- *
- * @param {function} transformExpression - The dependency-injected main expression transformer.
- * @param {object} node - The CallExpression AST node for Logic.js(...).
- * @param {object} context - The transformation context.
- * @returns {Array<object>} The IR goal array.
- */
 export default (transformExpression, node, context) => {
     if (!context.lhs) {
         throw new Error("Logic.js() can only be used on the right-hand side of an assignment (e.g., Result = Logic.js(...)).");
@@ -22,31 +13,47 @@ export default (transformExpression, node, context) => {
     }
     const [exprNode] = args;
 
-    // 3. Variable analysis (as you pointed out)
+    // Variable analysis
     const allFreeVars = findFreeVariables({ ast: exprNode });
     const logicVars = [];
+    const importVars = []; // Stores { name, access }
+
     for (const varName of allFreeVars) {
         const resolution = context.scope.resolveName(varName);
         if (resolution?.type === 'variable') {
             logicVars.push(varName);
+        } else if (resolution?.type === 'imported') {
+             // Use the mangled name defined in the scope
+             importVars.push({ name: varName, access: resolution.definition.mangledName });
         } else if (resolution?.type === 'predicate') {
             throw new Error(
                 `Cannot use predicate name '${varName}' directly inside Logic.js().`
             );
         } else {
-            // findFreeVariables filters known JS globals.
-            // Any other free variable is undeclared in the logic scope.
             throw new Error(
-                `Undeclared variable(s) in Logic.js(): ${varName}. ` +
-                `Only logic variables from the rule's scope can be used.`
+                `Undeclared variable(s) in Logic.js(): ${varName}.`
             );
         }
     }
 
-    // Return the jsExpr IR, passing the calculated logicVars
+    const allParamNames = [...logicVars, ...importVars.map(i => i.name)];
+    
+    const resolvedArgValues = [
+        // Logic Variables: Delegate to transformExpression, then ground.
+        ...logicVars.map(name => 
+            groundExpr(
+                transformExpression({ type: 'Identifier', name }, context), 
+                'bindings'
+            )
+        ),
+        // Imports: Pass the mangled identifier.
+        ...importVars.map(i => i.access)
+    ];
+
     return jsExpr({
         target: transformExpression(context.lhs, context),
         rawString: context.getRawSource(exprNode),
-        logicVars: new Map(logicVars.map(varName => [varName, transformExpression({ type: 'Identifier', name: varName }, context)])),
+        paramNames: allParamNames,
+        argValues: resolvedArgValues
     });
 };

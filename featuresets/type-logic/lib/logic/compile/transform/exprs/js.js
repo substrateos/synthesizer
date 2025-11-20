@@ -1,17 +1,18 @@
 import valueExpr from "@/lib/logic/compile/transform/exprs/value.js";
-import groundExpr from "@/lib/logic/compile/transform/exprs/ground.js";
 import switchExpr from "@/lib/logic/compile/transform/exprs/switch.js";
 
-export default ({ target, rawString, logicVars }) => {
-  const logicVarNames = [...logicVars.keys()]
-  // Get the list of argument *values* to pass to the IIFE
-  const resolvedArgValues = logicVarNames.map(name => groundExpr(logicVars.get(name), 'bindings'));
-
-  // Use the raw string directly as the IIFE body
+/**
+ * Generates the IIFE boilerplate for evaluating arbitrary JavaScript.
+ * @param {string} target - The code string for the target variable (e.g. "vars.Result").
+ * @param {string} rawString - The user's JS code (body of the IIFE).
+ * @param {string[]} paramNames - List of formal parameter names for the IIFE (e.g. ["A", "Math"]).
+ * @param {string[]} argValues - List of runtime expressions to pass as arguments (e.g. ["unify.ground(...)", "$i_Math"]).
+ */
+export default ({ target, rawString, paramNames, argValues }) => {
+  
   const iifeBody = rawString;
-
-  // Use the logicVars list directly as the IIFE parameter names
-  const iifeParamNames = logicVarNames.join(', ');
+  const iifeParamNames = paramNames.join(', ');
+  const iifeArgs = argValues.join(', ');
 
   return [
     'let value',
@@ -23,7 +24,10 @@ export default ({ target, rawString, logicVars }) => {
         `    fail: (reason) => (shouldFail = {reason}),`,
         `    isGround: (v) => unify.isGround(v),`,
         `}; // TODO only lazily insert the Logic helper`,
-        `value = (function(${iifeParamNames}){ return ${iifeBody} }).call(Logic, ${resolvedArgValues.join(', ')});`,
+        
+        // Execute the IIFE, passing in grounded logic vars and raw imports
+        `value = (function(${iifeParamNames}){ return ${iifeBody} }).call(Logic, ${iifeArgs});`,
+        
         `if (shouldFail) {`,
         `    yieldValue = {type: 'fail', reason: shouldFail.reason}`,
         `    continue`,
@@ -60,6 +64,7 @@ export default ({ target, rawString, logicVars }) => {
         `        throw resumeValue.error`,
         `    }`,
         `}`,
+        // Bind the result of the JS expression to the target variable
         `bindings = unify(${valueExpr(target, 'bindings')}, value, bindings, location);`,
         `if (bindings) {`,
         `    pc++; // Success, continue to the next goal.`,

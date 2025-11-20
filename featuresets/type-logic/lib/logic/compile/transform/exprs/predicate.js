@@ -5,13 +5,7 @@ import blockExpr from "@/lib/logic/compile/transform/exprs/block.js";
 import switchExpr from "@/lib/logic/compile/transform/exprs/switch.js";
 import iifeExpr from "@/lib/logic/compile/transform/exprs/iife.js";
 
-/**
- * Transforms a PredicateDefinition (from the analysis scope tree) into its IR format.
- * @param {PredicateDefinition} predicateDef - The predicate definition from analyzeScopes.
- * @param {Scope} scope - The parent scope where this predicate was defined (provides context).
- * @returns {object} The final IR object for the predicate { name, mangledName, clauses }.
- */
-export default function transformPredicate(predicateDef) {
+export default function transformPredicate(predicateDef, scope, hasImports) {
     const name = predicateDef.name
     const mangledName = predicateDef.mangledName
     const clauseEntries = [
@@ -21,12 +15,11 @@ export default function transformPredicate(predicateDef) {
                 declaredVars: [],
                 body: [
                     callExpr({
-                        // Mangled name of the predicate we fall back TO
                         resolverExpr: `${predicateDef.shadows}.bind(null, null)`,
-                        // Pass original goal arguments
                         argsExpr: 'goal',
                     }),
                 ],
+                scope: { resolveName: () => null }, 
             })]]
             : []
         ),
@@ -36,14 +29,24 @@ export default function transformPredicate(predicateDef) {
         return []
     }
 
-    // Each clause (plus the optional fallback) will be a choice point.
     const forksArray = `${JSON.stringify(clauseEntries.map(([clauseId]) => ({ resume: { clauseId } })))}`;
+
+    // Inject the gatekeeper check with error handling
+    const importCheck = hasImports ? [
+        `if (!$importsReady) {`,
+        `    const step = yield { type: 'await', promise: $importsPromise, resume: { start: true } };`,
+        `    if (step.resumeValue && step.resumeValue.status === 'rejected') {`,
+        `        throw step.resumeValue.error;`,
+        `    }`,
+        `}`
+    ] : [];
 
     return [
         `/**`,
         ` * Transpiled resolver for the '${name}' predicate.`,
         ` */`,
         blockExpr(`function* ${mangledName}(parentScopes, ...goal)`,
+            ...importCheck,
             'let yieldValue;',
             '',
             `yieldValue = {type: 'fork', forks: ${forksArray}};`,
