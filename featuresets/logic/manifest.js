@@ -23,6 +23,7 @@ export default {
         'lib/logic/testShim/files/importer.logic.js',
         'lib/logic/testShim/files/simple.logic.js',
         'lib/logic/testShim/files/math.js',
+        'lib/logic/testShim/files/importer/tests/simple.js',
         'lib/logic/testShim/tests/closure.js',
         'lib/logic/testShim/tests/closure-as-data.js',
         'lib/logic/testShim/tests/shadowing.js',

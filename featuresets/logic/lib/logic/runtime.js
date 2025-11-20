@@ -80,6 +80,10 @@ function createConfiguredQuery(config) {
         return createConfiguredQuery(mergedConfig);
     };
 
+    query.findall = function (template, goal) {
+        return findall(template, this(...goal))
+    };
+
     return query;
 }
 
