@@ -28,6 +28,7 @@ export default {
         'lib/logic/testShim/tests/destructuring-head-defaults.js',
         'lib/logic/testShim/tests/destructuring-expressions.js',
         'lib/logic/testShim/tests/tracer.js',
+        'lib/logic/testShim/tests/typeof.js',
         'lib/logic/testShim/tests/facts.js',
         'lib/logic/testShim/tests/builtins-optional.js',
         'lib/logic/testShim/tests/builtins-is_ground.js',
