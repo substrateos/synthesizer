@@ -139,9 +139,13 @@ export default class ProviderBridge {
         // Commands receive a Resolver function, not a specific synth.
         // This allows them to handle arguments spanning multiple authorities.
         if (message.type === 'runCommand') {
-            this.#runRequest(requestId, async () => {
+            this.#runRequest(requestId, async (onProgress, signal) => {
                 // Pass the bound resolve method to the command adapter
-                return await this.#commandsAdapter.doCommand(this.#resolve.bind(this), message);
+                return await this.#commandsAdapter.doCommand({
+                    resolve: this.#resolve.bind(this),
+                    onProgress,
+                    signal,
+                }, message);
             });
             return;
         }

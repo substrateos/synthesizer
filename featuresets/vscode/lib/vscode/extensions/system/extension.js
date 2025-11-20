@@ -746,7 +746,6 @@ async function activate(context) {
     const provider = new Provider(vscode, bridgeClient);
     const testProvider = new TestProvider(vscode, bridgeClient);
 
-    // Handle multi-root events
     bridgeClient.handle('restore', async (msg) => await provider.applyRestore(msg.authority));
     bridgeClient.handle('write', (msg) => provider.applyWrite(msg.authority, msg.data));
 

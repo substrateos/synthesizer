@@ -7,10 +7,10 @@ const commandRegistry = {
 export default {
     /**
      * Executes a command.
-     * @param {Function} resolve A function (uri) -> { synth, path, authority }
+     * @param {pbject} context A context object with {resolve: (uri) => { synth, path, authority }, previewAdapter} 
      * @param {object} message The full message payload.
      */
-    async doCommand(resolve, message) {
+    async doCommand(context, message) {
         const {commandId, commandArgs} = message
         const handler = commandRegistry[commandId];
 
@@ -21,7 +21,7 @@ export default {
 
         try {
             // Pass the resolver as the first argument
-            const result = await handler(resolve, ...commandArgs);
+            const result = await handler(context, ...commandArgs);
             return result || {}; 
         } catch (e) {
             console.error(`Error executing command '${commandId}':`, e);

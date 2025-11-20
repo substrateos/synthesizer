@@ -5,7 +5,7 @@ import doDump from "@/do/dump"
  * @param {object} target The target URI where the command was invoked (fallback if list is empty)
  * @param {Array} list List of selected URIs (from multi-select)
  */
-export default async function (resolve, target, list) {
+export default async function (context, target, list) {
     // If no list provided (e.g. command palette), use target as a single-item list
     const items = (list && list.length > 0) ? list : [target];
     
@@ -16,7 +16,7 @@ export default async function (resolve, target, list) {
     for (const uri of items) {
         if (!uri) continue;
 
-        const { synth, path: rawPath } = resolve(uri);
+        const { synth, path: rawPath } = context.resolve(uri);
         
         if (!synth || !rawPath) continue;
 
