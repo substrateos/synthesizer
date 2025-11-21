@@ -48,12 +48,12 @@ This language is a hybrid that combines the declarative power of logic programmi
   * **`Logic.js()`**: Evaluate arbitrary JavaScript expressions within a rule body, resolving logic variables before execution. In logic.solveAsync, this built-in can transparently handle expressions that return a Promise.
   * **`Logic.optional(Default)`**: Used within assignment or destructuring to provide a "soft" default value. It unifies with the input if present (ignoring the default), or binds to the `Default` if the input is `undefined`.
   * **`Logic.is_ground`**: Succeeds if the given term contains no unbound logic variables.
-  * **`Logic.findall`**: A built-in predicate to collect all solutions for a sub-goal into a single list.
+  * **`Logic.findall`**: A built-in predicate to collect all solutions for a sub-goal into a single list *within* a logic program.
 
 ### Execution Model
   * **Dual Sync/Async API**:
-    * `logic.solve`: For **synchronous** programs. All queries return a standard Iterator. You can collect results with `[...query]`. The engine will **throw an error** if `Logic.js()` returns a `Promise`.
-    * `logic.solveAsync`: For **asynchronous** programs. This tag allows `Logic.js()` to handle `Promise` results. All queries return an `AsyncIterator`. You must use `for await...of` or a helper (like `logic.all()`) to collect results.
+    * `logic.solve`: For **synchronous** programs. Queries return a standard Iterator. You can collect results with `[...query]` or `logic.findall(query)`.
+    * `logic.solveAsync`: For **asynchronous** programs. This tag allows `Logic.js()` to handle `Promise` results. Queries return an `AsyncIterator`. You must use `for await...of` or the helper `await logic.findall(query)` to collect results.
   * **Ahead-of-Time (AOT) Transpilation**: The `solve` or `solveAsync` tag transpiles the logic program into highly optimized JavaScript sync generators *once*.
   * **Coroutine-based Runtime**: A minimal, efficient "trampoline" solver executes the generated code, a fast sync loop (`solveSync`) and an async-capable loop (`solveAsync`).
   * **Pluggable Schedulers**: The search strategy is configurable at query time. The default is **Depth-First Search (DFS)**, and **Breadth-First Search (BFS)** is also available.
@@ -83,13 +83,13 @@ let { Name, ID } = logic.vars();
 // 2. Run queries by calling the predicate functions.
 
 // Query 1: Find a specific student by ID.
-// This returns an iterator, so we use [...] to get all results.
+// This returns an iterator, so we use [...] or logic.findall to get results.
 let result = [...student(101, Name)];
 console.log(result);
 //> [ { Name: 'Alyssa P. Hacker' } ]
 
 // Query 2: Find a specific student by name.
-result = [...student(ID, 'Ben Bitdiddle')];
+result = logic.findall(student(ID, 'Ben Bitdiddle'));
 console.log(result);
 //> [ { ID: 102 } ]
 
@@ -140,7 +140,7 @@ let { prereq, all_prereqs } = logic.solve`
 
 // Query: Find all prerequisites for 8.02 (Physics II)
 let { P } = logic.vars();
-console.log([...all_prereqs('8.02', P)]);
+console.log(logic.findall(all_prereqs('8.02', P)));
 //> [ { P: '8.01' }, { P: '18.01' } ]
 ```
 
@@ -165,7 +165,7 @@ let { member } = logic.solve`
 // Query: Find all members of Alyssa's course list.
 let { X } = logic.vars();
 let alyssas_courses = ['8.02', '18.01', '6.001'];
-console.log([...member(X, alyssas_courses)]);
+console.log(logic.findall(member(X, alyssas_courses)));
 //> [ { X: '8.02' }, { X: '18.01' }, { X: '6.001' } ]
 ```
 
@@ -184,7 +184,7 @@ let { get_name } = logic.solve`
 // Query: Get the name from a JS object.
 let alyssa = { id: 101, name: 'Alyssa P. Hacker', major: 'EECS' };
 let { N } = logic.vars();
-console.log([...get_name(alyssa, N)]);
+console.log(logic.findall(get_name(alyssa, N)));
 //> [ { N: 'Alyssa P. Hacker' } ]
 ```
 
@@ -209,11 +209,11 @@ let { strict_student, flexible_student } = logic.solve`
 let alyssa = { id: 101, name: 'Alyssa P. Hacker', major: 'EECS' };
 
 // Strict: Fails because 'major' is extra in the data.
-console.log([...strict_student(alyssa)]);
+console.log(logic.findall(strict_student(alyssa)));
 //> []
 
 // Flexible: Succeeds. It checks 'name' and ignores 'id' and 'major'.
-console.log([...flexible_student(alyssa)]);
+console.log(logic.findall(flexible_student(alyssa)));
 //> [ {} ]
 ```
 
@@ -241,7 +241,7 @@ let { course, is_high_workload } = logic.solve`
 
 // Query: Find all high-workload courses.
 let { ID } = logic.vars();
-console.log([...is_high_workload(ID)]);
+console.log(logic.findall(is_high_workload(ID)));
 //> [ { ID: '6.001' }, { ID: '8.01' } ]
 ```
 
@@ -276,7 +276,7 @@ let { course, total_hours } = logic.solve`
 // Query: Calculate total hours for Alyssa's schedule
 let { H } = logic.vars();
 let alyssas_schedule = ['6.001', '8.01']; // 15 + 12
-console.log([...total_hours(alyssas_schedule, H)]);
+console.log(logic.findall(total_hours(alyssas_schedule, H)));
 //> [ { H: 27 } ]
 ```
 
@@ -298,13 +298,13 @@ let { get_handle } = logic.solve`
 
 // Query: Find the handle for "Alyssa P. Hacker"
 let { Handle } = logic.vars();
-console.log([...get_handle('Alyssa P. Hacker', Handle)]);
+console.log(logic.findall(get_handle('Alyssa P. Hacker', Handle)));
 //> [ { Handle: 'alyssa' } ]
 ```
 
-#### 7. `Logic.findall`
+#### 7. `Logic.findall` (Internal)
 
-The `Logic.findall` built-in collects all possible solutions for a sub-goal into a single list. Its power comes from the `Template` argument (the 1st arg), which lets you format the results.
+The `Logic.findall` built-in collects all possible solutions for a sub-goal into a single list *inside* your logic rules. Its power comes from the `Template` argument (the 1st arg), which lets you format the results.
 
 ```javascript
 let { course, get_course_catalog } = logic.solve`
@@ -322,15 +322,15 @@ let { course, get_course_catalog } = logic.solve`
         // Logic.findall(Template, Goal, ResultList)
         Logic.findall(
             {id: ID, title: Title},  // 1. Template: Build this object
-            course(ID, Title, _),  // 2. Goal: For each course...
-            Catalog                // 3. ResultList: Put them in Catalog
+            course(ID, Title, _),    // 2. Goal: For each course...
+            Catalog                  // 3. ResultList: Put them in Catalog
         );
     }
 `;
 
 // Query: Get the entire course catalog.
 let { C } = logic.vars();
-let [catalog] = get_course_catalog(C);
+let [catalog] = logic.findall(get_course_catalog(C));
 console.log(catalog.C);
 //> [
 //>   { id: '6.001', title: 'SICP' },
@@ -373,7 +373,7 @@ let { course, prereq, is_prereq_for_another,
 `;
 
 // Query: Find all leaf courses.
-console.log([...is_leaf_course(ID)]);
+console.log(logic.findall(is_leaf_course(ID)));
 //> [ { ID: '6.001' }, { ID: '8.02' } ]
 ```
 
@@ -409,12 +409,12 @@ let { student, get_title, get_student_title } = logic.solve`
 
 // Query 1: Get title for Alyssa (ID 101)
 // Finds local rule first, then global rule on backtracking.
-console.log([...get_student_title(101, S)]);
+console.log(logic.findall(get_student_title(101, S)));
 //> [ { S: 'Lisp Wizard' }, { S: 'Student' } ]
 
 // Query 2: Get title for Ben (ID 102)
 // Fails local rule, but finds global rule on backtracking.
-console.log([...get_student_title(102, S)]);
+console.log(logic.findall(get_student_title(102, S)));
 //> [ { S: 'Student' } ]
 ```
 
@@ -444,7 +444,7 @@ let { double, map } = logic.solve`
 
 // Query: Apply the 'double' operation to the list.
 let { R } = logic.vars();
-console.log([...map([10, 20, 30], double, R)]);
+console.log(logic.findall(map([10, 20, 30], double, R)));
 //> [ { R: [ 20, 40, 60 ] } ]
 ```
 
@@ -463,11 +463,11 @@ let { validate } = logic.solve`
 let { X } = logic.vars();
 
 // Query 1: Term is ground (a concrete string).
-console.log([...validate('6.001')]);
+console.log(logic.findall(validate('6.001')));
 //> [ {} ] (Succeeds)
 
 // Query 2: Term is an unbound variable.
-console.log([...validate(X)]);
+console.log(logic.findall(validate(X)));
 //> [] (Fails)
 ```
 
@@ -500,10 +500,43 @@ let { fetch_student_info } = logic.solveAsync`
 `;
 
 // Query: Fetch Alyssa's info.
-// We must use `await` or `for await...of` to get results.
+// We must use `await` and `logic.findall` for async queries.
 let { Info } = logic.vars();
-console.log(await logic.all( fetch_student_info('Alyssa P. Hacker', Info) ));
+console.log(await logic.findall( fetch_student_info('Alyssa P. Hacker', Info) ));
 //> [ { Info: { id: 101, gpa: 3.9 } } ]
+```
+
+#### 13. Formatting Results with `logic.findall` (External)
+
+While `Logic.findall` formats results *inside* your logic program, the external `logic.findall` helper can also format the final results returned to JavaScript. This is cleaner than manually mapping over the array.
+
+You can provide a "Template" (any JS object or structure) as the first argument.
+
+```javascript
+let { student } = logic.solve`
+    function student(id=101, name='Alyssa P. Hacker') {}
+    function student(id=102, name='Ben Bitdiddle') {}
+`;
+
+let { ID, Name } = logic.vars();
+
+// 1. Return simple objects (Default behavior)
+let raw = logic.findall(student(ID, Name));
+//> [ { ID: 101, Name: '...' }, { ID: 102, Name: '...' } ]
+
+// 2. Return formatted strings using a Template
+let strings = logic.findall(
+    Logic.js(Name + " (#" + ID + ")"), // Template
+    student(ID, Name)                  // Query
+);
+//> [ "Alyssa P. Hacker (#101)", "Ben Bitdiddle (#102)" ]
+
+// 3. Return custom objects
+let objects = logic.findall(
+    { user: Name, db_id: ID }, // Template
+    student(ID, Name)          // Query
+);
+//> [ { user: '...', db_id: 101 }, ... ]
 ```
 
 -----
@@ -524,7 +557,8 @@ For those familiar with Prolog, here is a quick comparison of the syntax:
 | **Comparison** | `X > Y.` | `X > Y;` |
 | **Unification** | `X = Y.` | `X = Y;` |
 | **Anonymous Var** | `_` | `_` (as a variable) |
-| **Find All** | `findall(T, G, L).` | `Logic.findall(T, G, L);` |
+| **Find All (Internal)** | `findall(T, G, L).` | `Logic.findall(T, G, L);` |
+| **Find All (External)** | (N/A) | `logic.findall(T, G);` |
 
 -----
 
@@ -583,7 +617,7 @@ This difference is most important for destructuring, where a missing key or arra
     ```javascript
     function test_fail({a = 10}, R=a) {}
     let { V } = logic.vars();
-    [...test_fail({}, V)] //> [] (Fails)
+    logic.findall(test_fail({}, V)) //> [] (Fails)
     ```
 
 * **`Logic.optional` (Succeeds):**
@@ -591,7 +625,7 @@ This difference is most important for destructuring, where a missing key or arra
     ```javascript
     function test_ok({a = Logic.optional(10)}, R=a) {}
     let { V } = logic.vars();
-    [...test_ok({}, V)] //> [ { V: 10 } ]
+    logic.findall(test_ok({}, V)) //> [ { V: 10 } ]
     ```
 
 #### Example 2: Array Destructuring
@@ -601,7 +635,7 @@ This difference is most important for destructuring, where a missing key or arra
     ```javascript
     function test_fail([A = 10], R=A) {}
     let { V } = logic.vars();
-    [...test_fail([], V)] //> [] (Fails)
+    logic.findall(test_fail([], V)) //> [] (Fails)
     ```
 
 * **`Logic.optional` (Succeeds):**
@@ -609,7 +643,7 @@ This difference is most important for destructuring, where a missing key or arra
     ```javascript
     function test_ok([A = Logic.optional(10)], R=A) {}
     let { V } = logic.vars();
-    [...test_ok([], V)] //> [ { V: 10 } ]
+    logic.findall(test_ok([], V)) //> [ { V: 10 } ]
     ```
 
 > **Rule of Thumb:**

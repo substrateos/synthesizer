@@ -17,7 +17,7 @@ export default {
         'lib/logic/schedulers/DFS.js',
         'lib/logic/solution.js',
         'lib/logic/GoalSeries.js',
-        'lib/logic/all.js',
+        'lib/logic/findall.js',
         'lib/logic/parser.js',
         'lib/logic/runtime.js',
         'lib/logic/solve.js',

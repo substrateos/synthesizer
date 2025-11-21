@@ -11,7 +11,7 @@ const _ = Promise.all([
 ])
 
 const {
-    all,
+    findall,
     solve,
     solveAsync,
     vars: createVars,
@@ -113,7 +113,7 @@ export default async function({async, source, queries, configs}) {
         // Get the final, configured query function.
         const configuredQuery = predicateFn.configure(configToApply);
         const solutionGenerator = configuredQuery(...liveArgs)
-        allSolutions[queryName] = async ? await all(solutionGenerator) : all(solutionGenerator);
+        allSolutions[queryName] = async ? await findall(solutionGenerator) : findall(solutionGenerator);
     }
 
     return serialize({
