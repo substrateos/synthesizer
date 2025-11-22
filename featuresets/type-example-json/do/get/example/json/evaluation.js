@@ -28,6 +28,9 @@ export default async function (handlerInputs) {
         const returns = await unit(${params.map(p => JSON.stringify(p)).join(", ")});
         actualResults.push({ returns });
     } catch (err) {
+        if (err.name === 'RangeError' && err.message === 'Maximum call stack size exceeded') {
+            console.error(err)
+        }
         const throws = {name: err.name, message: err.message, ...err};
         actualResults.push({ throws });
     }
