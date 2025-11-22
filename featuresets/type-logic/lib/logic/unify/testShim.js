@@ -15,6 +15,9 @@ function serialize(data, library) {
     if (Array.isArray(data)) {
         return data.map(item => serialize(item, library));
     }
+    if (Symbol.iterator in data) {
+        return Array.from(data, item => serialize(item, library))
+    }
     if (data instanceof Value) {
         const key = data.isOptional ? '$optional' : '$required';
         return { [key]: [data.left, data.right].map(serialize) };
