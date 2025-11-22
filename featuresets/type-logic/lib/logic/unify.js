@@ -16,17 +16,21 @@ export function* symbols(term, visited = new Set(), symbolsRec) {
             yield term
         }
     } else if (Array.isArray(term)) {
+        if (visited.has(term)) return; // Stop recursion if already visited
+        visited.add(term);
+
         for (const element of term) {
             yield* symbolsRec(element)
         }
-    } else if (typeof term === 'object') {
-        if (term !== null) {
-            if (symbolsTag in term) {
-                yield* term[symbolsTag](symbolsRec)
-            } else {
-                for (const value of Object.values(term)) {
-                    yield* symbolsRec(value)
-                }
+    } else if (typeof term === 'object' && term !== null) {
+        if (visited.has(term)) return; // Stop recursion if already visited
+        visited.add(term);
+
+        if (symbolsTag in term) {
+            yield* term[symbolsTag](symbolsRec)
+        } else {
+            for (const value of Object.values(term)) {
+                yield* symbolsRec(value)
             }
         }
     }

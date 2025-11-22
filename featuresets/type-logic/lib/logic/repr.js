@@ -18,6 +18,9 @@ export default function repr(arg, bindings=null, visited=new Set(), reprRec) {
     if (!reprRec) {
         reprRec = o => repr(o, bindings, visited, reprRec)
     }
+    
+    if (visited.has(arg)) return '<Circular>';
+    visited.add(arg);
 
     if (typeof arg === 'symbol') {
         if (bindings && Object.hasOwn(bindings, arg)) {
@@ -27,9 +30,6 @@ export default function repr(arg, bindings=null, visited=new Set(), reprRec) {
         }
         return `${arg.description}`;
     }
-    
-    if (visited.has(arg)) return '<Circular>';
-    visited.add(arg);
 
     if (Array.isArray(arg)) {
         return `[${arg.map(reprRec).join(', ')}]`;
