@@ -87,17 +87,9 @@ export default async (base, subpaths, sharedAttributes={}) => {
             const {ast} = parse({source})
             const {
                 consts: constNodes,
-                default: defaultNode,
             } = findStaticExports({ast})
             if (constNodes?.attributes) {
                 Object.assign(attributes, astNodeToValue({node: constNodes?.attributes}))
-            }
-
-            if (attributes.type !== 'javascript') {
-                if (defaultNode) {
-                    const defaultExportValue = astNodeToValue({node: defaultNode})
-                    source = typeof defaultExportValue === 'string' ? defaultExportValue : JSON.stringify(defaultExportValue)
-                }
             }
         }
         Object.assign(attributes, sharedAttributes)

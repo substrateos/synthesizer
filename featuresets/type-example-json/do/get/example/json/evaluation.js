@@ -1,19 +1,8 @@
 export default async function (handlerInputs) {
     const {action, unit, name, workspace, console} = this
-    const {source} = unit
 
-    let parsed
-    let cases
-    if (typeof source === 'string') {
-        parsed = JSON.parse(source)
-    } else {
-        parsed = source
-    }
-    if (Array.isArray(parsed)) {
-        cases = parsed
-    } else {
-        cases = [parsed]
-    }
+    const {default: parsed} = await workspace.getAttribute({name, unit, attribute: 'javascript:evaluation'})
+    const cases = Array.isArray(parsed) ? parsed : [parsed]
 
     const expectedResults = cases.map(({returns, throws}) => ({
         returns,
