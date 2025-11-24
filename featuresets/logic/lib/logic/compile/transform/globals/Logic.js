@@ -1,3 +1,5 @@
+import compile from "@/lib/logic/compile/transform/builtins/compile.js";
+import config from "@/lib/logic/compile/transform/builtins/config.js";
 import findall from "@/lib/logic/compile/transform/builtins/findall.js";
 import optional from "@/lib/logic/compile/transform/builtins/optional.js";
 import is_ground from "@/lib/logic/compile/transform/builtins/is_ground.js";
@@ -7,6 +9,8 @@ import js from "@/lib/logic/compile/transform/builtins/js.js";
  * A dispatch table for methods on the `Logic` object.
  */
 const Logic = {
+    compile,
+    config,
     findall,
     optional,
     is_ground,

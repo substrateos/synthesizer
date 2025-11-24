@@ -34,6 +34,8 @@ export default {
         'lib/logic/testShim/tests/tracer.js',
         'lib/logic/testShim/tests/typeof.js',
         'lib/logic/testShim/tests/facts.js',
+        'lib/logic/testShim/tests/builtins-config.js',
+        'lib/logic/testShim/tests/builtins-compile.js',
         'lib/logic/testShim/tests/builtins-optional.js',
         'lib/logic/testShim/tests/builtins-is_ground.js',
         'lib/logic/testShim/tests/builtins-js.js',
@@ -61,6 +63,8 @@ export default {
         'lib/logic/compile/analyze/util/visit.js',
         'lib/logic/compile/analyze/program.js',
 
+        'lib/logic/compile/transform/builtins/compile.js',
+        'lib/logic/compile/transform/builtins/config.js',
         'lib/logic/compile/transform/builtins/optional.js',
         'lib/logic/compile/transform/builtins/findall.js',
         'lib/logic/compile/transform/builtins/is_ground.js',

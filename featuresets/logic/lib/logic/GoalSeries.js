@@ -1,7 +1,7 @@
 import DFS from "@/lib/logic/schedulers/DFS.js";
 import {configTag} from "@/lib/logic/tags.js"
 
-export default function GoalSeries({nextID=1, defaultSchedulerClass=DFS, defaultTracer}={}) {
+export default function GoalSeries({nextID=1, defaultSchedulerClass=DFS, defaultTracer, config}={}) {
     // A "Goal" is a context object for a single query instance (e.g., `path(X, 'd')`).
     // It tracks the overall state for that query, including solutions found, and
     // pending work (choice points/forks).
@@ -323,6 +323,12 @@ export default function GoalSeries({nextID=1, defaultSchedulerClass=DFS, default
                             currentGoal = undefined;
                         }
                     }
+                    break;
+                }
+
+                case 'config': {
+                    const { resume } = signal;
+                    currentGoal.schedule({ resume, resumeValue: this.resolver[configTag] || config });
                     break;
                 }
             }

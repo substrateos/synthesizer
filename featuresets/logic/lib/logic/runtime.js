@@ -14,10 +14,40 @@ import ObjectPattern from "@/lib/logic/unify/ObjectPattern.js";
 import ArrayPattern from "@/lib/logic/unify/ArrayPattern.js";
 import Value from "@/lib/logic/unify/Value.js";
 import resolveSolution from "@/lib/logic/solution.js";
+import findall from "@/lib/logic/findall.js";
 
 const baseConfig = {
+    compile(source) {
+        if (!this.compiler) {
+            throw new Error("Compiler is not available in this configuration.");
+        }
+        
+        const { generatedSource, runtime, exports } = this.compiler({ source, outputFormat: 'script' });
+        let factory
+        try {
+            factory = new Function(`return (${generatedSource})`);
+        } catch (e) {
+            if (e instanceof SyntaxError) {
+                throw new SyntaxError(e.message + `\ngeneratedSource:\n${generatedSource}`)
+            }
+            throw e
+        }
+
+        const rawDatabase = factory()(runtime);
+
+        const wrapped = {};
+        for (const key in rawDatabase) {
+            const resolver = rawDatabase[key]
+            resolver[nameTag] = key;
+            wrapped[key] = createConfiguredQuery({ ...this, resolver })
+        }
+
+        const defaultExport = exports.find(e => e.type === 'default');
+        return defaultExport ? wrapped.default : wrapped;
+    },
     newGoal(...args) {
-        const Goal = GoalSeries({ defaultSchedulerClass: this.defaultSchedulerClass })
+        const config = Object.freeze({...this})
+        const Goal = GoalSeries({ defaultSchedulerClass: this.defaultSchedulerClass, config })
         const scheduler = this.schedulerClass ? new (this.schedulerClass)() : undefined
         return new Goal({ scheduler, resolver: this.resolver, args, tracer: this.tracer });
     },
