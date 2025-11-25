@@ -1,147 +1,110 @@
-export default async function (handlerInputs) {
-    const {action, unit, name, workspace, console} = this
+import stringify from '@/lib/example/json/stringify.js'
 
-    const {default: parsed} = await workspace.getAttribute({name, unit, attribute: 'javascript:evaluation'})
+export default async function (handlerInputs) {
+    const { action, unit, name, workspace, console } = this
+
+    // ensure we get a fresh instance each time, so tests cannot interfere with each other
+    const { default: parsed } = await workspace.getAttribute({ name, unit, attribute: 'javascript:evaluation', cached: false })
     const cases = Array.isArray(parsed) ? parsed : [parsed]
 
-    const expectedResults = cases.map(({returns, throws}) => ({
-        returns,
-        throws
-    }));
+    const expecteds = cases.map(({ returns, throws }) => (Object.assign({}, (returns !== undefined) && { returns }, (throws !== undefined) && { throws })));
+    return async ({ unit, console }) => {
 
-    const formatCase = ({description, params, debug}, i) => {
-        return `
-    // Case ${i}: ${JSON.stringify(description)}
-    ${debug ? '' : '// ' }debugger
-    try {
-        const returns = await unit(${params.map(p => JSON.stringify(p)).join(", ")});
-        actualResults.push({ returns });
-    } catch (err) {
-        if (err.name === 'RangeError' && err.message === 'Maximum call stack size exceeded') {
-            console.error(err)
-        }
-        const throws = {name: err.name, message: err.message, ...err};
-        actualResults.push({ throws });
-    }
-`
-    }
+        // Embed the test cases and expected results directly in the source.
+        const actuals = []
+        const debugs = []
 
-    const testSource = `
-import {jsondiffpatch} from "@/lib/example/json/jsondiffpatch@0.7.3/jsondiffpatch.js";
-import ConsoleFormatter from "@/lib/example/json/ConsoleFormatter.js";
+        for (const { description, debug, debugKeys, params, method } of cases) {
+            const stripDebug = (returns) => {
+                if (!debugKeys || !returns) {
+                    return null;
+                }
+                const d = {};
+                for (const key of debugKeys) {
+                    d[key] = returns[key];
+                    delete returns[key];
+                }
+                return d;
+            };
 
-export default async ({unit, console}) => {
-    // testID=${name}
-    
-    // Embed the test cases and expected results directly in the source.
-    const cases = ${JSON.stringify(cases, null, 2)};
-    const expectedResults = ${JSON.stringify(expectedResults, null, 2)};
-    const actualResults = [];
-    const differ = jsondiffpatch.create();
-
-    ${cases.map((testCase, i) => formatCase(testCase, i)).join("\n")}
-
-    // Helper to remove debug-only keys for a clean comparison.
-    const cleanResultForDiff = (result, testCase) => {
-        // Deep clone to avoid modifying the original object.
-        const cleanedResult = JSON.parse(JSON.stringify(result));
-        if (testCase.debugKeys && result.returns) {
-            for (const key of testCase.debugKeys) {
-                delete cleanedResult.returns[key];
+            if (debug) {
+                debugger;
             }
-        }
-        return cleanedResult;
-    };
-
-    const debugResult = (result, testCase) => {
-        if (!testCase.debugKeys || !result.returns) {
-            return null; // No debugKeys for this case.
-        }
-        const d = {};
-        for (const key of testCase.debugKeys) {
-            d[key] = result.returns[key];
-        }
-        return d;
-    };
-
-    // Create clean versions of the results for comparison.
-    const expectedForDiff = expectedResults.map((res, i) => cleanResultForDiff(res, cases[i]));
-    const actualForDiff = actualResults.map((res, i) => cleanResultForDiff(res, cases[i]));
-    
-    // Perform the diff against the cleaned result sets.
-    const delta = differ.diff(expectedForDiff, actualForDiff);
-    const actualForDebug = actualResults.map((res, i) => debugResult(res, cases[i]));
-    const formatter = new ConsoleFormatter();
-
-    /**
-     * Logs a single test case result (PASS or FAIL) to the console.
-     */
-    const logTestCase = (i, testCase, testDelta, expected, actual, debug) => {
-        if (testDelta) {
-            // This test FAILED
-            console.group(
-                \`%c[\${i}] %c\${testCase.description}\`,
-                'color: #dc3545; font-weight: bold;', // Style for [FAIL @ index]
-                'color: inherit; font-weight: normal;' // Style for description
-            );
             try {
-                // Use ConsoleFormatter to show the diff
-                formatter.format(testDelta);
-            } catch (e) {
-                console.error("Error while formatting delta", testDelta, e)
+                const returns = await (method ? unit[method](...params) : unit(...params));
+                debugs.push(stripDebug(returns));
+                actuals.push({ returns });
+            } catch (err) {
+                if (err.name === 'RangeError' && err.message === 'Maximum call stack size exceeded') {
+                    console.error(err);
+                }
+                const throws = { name: err.name, message: err.message, ...err };
+                debugs.push(null);
+                actuals.push({ throws });
             }
-        } else {
-            // This test PASSED
-            console.groupCollapsed(
-                \`%c[\${i}] %c\${testCase.description}\`,
-                'color: #28a745;', // Green
-                'color: inherit; font-weight: normal;'
+        }
+
+        const deltas = expecteds.map((expected, i) => stringify(expected) !== stringify(actuals[i]))
+        const failedIndexes = deltas.flatMap((d, i) => d ? [i] : [])
+
+        let error
+        if (failedIndexes.length > 0) {
+            const hasDebug = debugs.some(d => d)
+            const failure = [
+                `FAIL testID=${name}`,
+                ` failedIndexes=${stringify(failedIndexes)}`,
+                ` want=${stringify(expecteds)}`,
+                `  got=${stringify(actuals)}`,
+                ...(hasDebug ? [`debug=${stringify(debugs)}`] : []),
+            ].join("\n")
+            error = new Error(failure);
+            error.expected = expecteds
+            error.actual = actuals
+            error.debug = debugs
+        }
+
+        /**
+         * Logs a single test case result (PASS or FAIL) to the console.
+         */
+        const logTestCase = (i, failed, testCase, expected, actual, debug) => {
+            if (failed) {
+                // This test FAILED
+                console.group(
+                    `%c[${i}] %c${testCase.description}`,
+                    'color: #dc3545; font-weight: bold;', // Style for [FAIL @ index]
+                    'color: inherit; font-weight: normal;' // Style for description
+                );
+            } else {
+                // This test PASSED
+                console.groupCollapsed(
+                    `%c[${i}] %c${testCase.description}`,
+                    'color: #28a745;', // Green
+                    'color: inherit; font-weight: normal;'
+                );
+            }
+            console.log('Params:', testCase.params);
+            console.log('Result:', actual); // Show 'Got'
+            console.log('Expect:', expected); // Show 'Expected'
+            if (debug) {
+                console.log('Debug: ', debug);
+            }
+            console.groupEnd();
+        };
+
+        // Iterate through all test cases and use the new helper
+        for (let i = 0; i < cases.length; i++) {
+            logTestCase(
+                i,
+                deltas[i],
+                cases[i],
+                expecteds[i],
+                actuals[i],
+                debugs[i]
             );
         }
-        console.log('Params:', testCase.params);
-        console.log('Result:', actual); // Show 'Got'
-        console.log('Expect:', expected); // Show 'Expected'
-        if (debug) {
-            console.log('Debug: ', debug);
+
+        if (error) {
+            throw error
         }
-        console.groupEnd();
-    };
-
-
-    let error
-    if (delta) {
-        const hasDebug = actualForDebug.some(d => d)
-        const failure = [
-            "FAIL testID=${name}",
-            " want=" + JSON.stringify(expectedForDiff),
-            "  got=" + JSON.stringify(actualForDiff),
-            ...(hasDebug ? ["debug=" + JSON.stringify(actualForDebug)] : []),
-        ].join("\\n")
-        error = new Error(failure);
-        error.expected = expectedForDiff
-        error.actual = actualForDiff
-        error.debug = actualForDebug
     }
-
-    // Iterate through all test cases and use the new helper
-    for (let i = 0; i < cases.length; i++) {
-        logTestCase(
-            i,
-            cases[i],
-            (delta && (delta[\`\${i}\`] || delta[\`_\${i}\`])),
-            expectedForDiff[i],
-            actualForDiff[i],
-            actualForDebug[i]
-        );
-    }
-
-    if (error) {
-        throw error
-    }
-}`
-
-    return await workspace.call({
-        type: 'javascript', 
-        source: testSource
-    });
 }

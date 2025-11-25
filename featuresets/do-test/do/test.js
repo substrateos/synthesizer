@@ -1,3 +1,6 @@
+import {jsondiffpatch} from "@/lib/test/jsondiffpatch@0.7.3/jsondiffpatch.js";
+import ConsoleFormatter from "@/lib/test/ConsoleFormatter.js";
+
 // a test is a function that accepts the inputs {unit} and throws on failure
 async function testsFor(workspace, targetNames) {
     // todo unit.testFor might be a promise
@@ -18,6 +21,7 @@ async function getDefault(workspace, name) {
 }
 
 async function runTestsFor({path, workspace, names, logResults, throwOnFail}) {
+    const differ = logResults && jsondiffpatch.create()
     let passed = [], failed = [], total = 0
 
     const allTestMatches = await testsFor(workspace, new Set(names))
@@ -46,9 +50,20 @@ async function runTestsFor({path, workspace, names, logResults, throwOnFail}) {
                 } catch (caught) {
                     failed.push({name, test, caught})
                     if (logResults) {
+                        if (caught.expected && caught.actual) {
+                            const delta = differ.diff(caught.expected, caught.actual);
+                            const formatter = new ConsoleFormatter();
+                            try {
+                                // Use ConsoleFormatter to show the diff
+                                formatter.format(delta);
+                            } catch (e) {
+                                console.error("Error while formatting delta", testDelta, e)
+                            }
+                        }
                         console.error(`%c${caught.name}%c: ${caught.message}`,
                             'color: #dc3545; font-weight: bold;',
-                            'color: inherit; font-weight: normal;'
+                            'color: inherit; font-weight: normal;',
+                            {expected: caught.expected, actual: caught.actual, caught},
                         );
                     }
                 } finally {
