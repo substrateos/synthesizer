@@ -94,7 +94,7 @@ export default [
             }
         ],
         "returns": {
-            "X": { "value": { "$var": "Y" }, "trace": [{ "type": "BIND", "variable": { "$var": "X" }, "value": { "$var": "Y" }, "location": { "rule": "V-Req-Unbound" } }] },
+            "X": { "value": { "$var": "Y" }, "trace": [{ "type": "BIND", "variable": { "$var": "Y" }, "value": { "$var": "X" }, "location": { "rule": "V-Req-Unbound" } }] },
             "Y": { "value": 10, "trace": [{ "type": "BIND", "variable": { "$var": "Y" }, "value": 10, "location": { "rule": "V-Req-Unbound" } }] },
         }
     }

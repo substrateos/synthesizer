@@ -64,8 +64,8 @@ export default ({topLevelScope, imports, exports}) => {
     return `
 ${headerImports}
 
-import runtime from "@/lib/logic/runtime.js";
-const { unify, resolverTags, resolverTag, nameTag, ArrayPattern, ObjectPattern, Value, createConfiguredQuery, _, baseConfig } = runtime;
+import logic from "@/lib/logic/logic.js";
+const { unify, resolverTags, resolverTag, nameTag, ArrayPattern, ObjectPattern, Value, createConfiguredQuery, _, baseConfig, createTracer } = logic.runtime;
 
 ${resolvers}
 

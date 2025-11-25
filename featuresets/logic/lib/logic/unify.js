@@ -1,39 +1,20 @@
-import { unifyTag, groundTag, symbolsTag, _ } from "@/lib/logic/tags.js"
+import { unifyTag, groundTag, _ } from "@/lib/logic/tags.js"
+import symbols from '@/lib/logic/unify/symbols.js'
 import Trace from '@/lib/logic/unify/Trace.js'
 import Value from '@/lib/logic/unify/Value.js'
 import repr from '@/lib/logic/repr.js'
+import flatten from "@/lib/logic/unify/flatten.js"
 
 /**
- * Recursively finds all unique symbols (logic variables) in a data structure.
+ * Creates a new bindings object that inherits from the same prototype 
+ * as the original, preserving the scope chain.
  */
-export function* symbols(term, visited = new Set(), symbolsRec) {
-    if (!symbolsRec) {
-        symbolsRec = function* (o) { yield* symbols(o, visited, symbolsRec) }
-    }
-    if (typeof term === 'symbol') {
-        if (!visited.has(term)) {
-            visited.add(term)
-            yield term
-        }
-    } else if (Array.isArray(term)) {
-        if (visited.has(term)) return; // Stop recursion if already visited
-        visited.add(term);
-
-        for (const element of term) {
-            yield* symbolsRec(element)
-        }
-    } else if (typeof term === 'object' && term !== null) {
-        if (visited.has(term)) return; // Stop recursion if already visited
-        visited.add(term);
-
-        if (symbolsTag in term) {
-            yield* term[symbolsTag](symbolsRec)
-        } else {
-            for (const value of Object.values(term)) {
-                yield* symbolsRec(value)
-            }
-        }
-    }
+export function mergeBindings(original, updates) {
+    return Object.assign(
+        Object.create(Object.getPrototypeOf(original)),
+        original,
+        updates,
+    );
 }
 
 /**
@@ -46,6 +27,40 @@ export function isGround(term) {
         return false
     }
     return true
+}
+
+/**
+ * Returns a list of active constraints for a given variable.
+ * @param {*} term - The variable (or value) to inspect.
+ * @param {Object} bindings - The current bindings.
+ * @returns {Array} List of constraint objects { fn, args, location }.
+ */
+export function constraints(term, bindings) {
+    const { value, trace } = resolve(term, bindings);
+
+    // If the term resolved to a concrete value, it has no pending constraints.
+    if (typeof value !== 'symbol' || !trace) return [];
+
+    const result = [];
+    const seen = new Set();
+
+    for (const event of trace) {
+        if (event.type === 'CONSTRAINT' && !seen.has(event)) {
+            seen.add(event);
+
+            // Resolve the arguments against the *current* bindings to give
+            // the user the most up-to-date view of the constraint.
+            const currentArgs = event.args.map(a => resolve(a, bindings).value);
+
+            result.push({
+                fn: event.fn,
+                args: currentArgs,
+                location: event.location
+            });
+        }
+    }
+
+    return result;
 }
 
 /**
@@ -63,31 +78,125 @@ function contains(structure, sym) {
 }
 
 /**
- * Resolves a term by following a chain of bindings. It recursively reconstructs
- * the complete historical trace for the final value.
- *
- * @param {*} term - The term to resolve (can be any type, including a variable Symbol).
- * @param {object} bindings - The current bindings object, keyed by Symbols.
- * @returns {{value: *, trace: Array}} The final binding object for the term.
+ * Applies a constraint based on a native JS function.
+ * @param {Object} bindings - Current bindings.
+ * @param {Function} fn - The function defining the logic (e.g., (a,b) => a > b).
+ * @param {Array} args - The list of arguments (Variables or Values) to pass to fn.
+ * @param {Object} location - Source location for debugging.
+ */
+export function constrain(bindings, fn, args, location) {
+    // Resolve all arguments once
+    const resolvedArgs = new Array(args.length);
+    const unboundVars = new Set();
+    let isFullyGround = true;
+
+    for (let i = 0; i < args.length; i++) {
+        const { value } = resolve(args[i], bindings);
+        resolvedArgs[i] = value;
+
+        if (typeof value === 'symbol') {
+            unboundVars.add(value);
+            isFullyGround = false;
+        }
+    }
+
+    if (isFullyGround) {
+        return fn(...resolvedArgs) ? bindings : null;
+    }
+
+    // Deferral
+    const constraintEvent = {
+        type: 'CONSTRAINT',
+        fn,
+        args, // Store original args so future checks resolve against future bindings
+        location,
+        check: (val, b, boundSym) => {
+            const currentArgs = [];
+            let stillUnbound = false;
+
+            for (let i = 0; i < args.length; i++) {
+                // 1. Check the symbol currently being bound (Fastest)
+                if (args[i] === boundSym) {
+                    currentArgs.push(val);
+                    continue;
+                }
+
+                // Resolve against current bindings
+                const r = resolve(args[i], b).value;
+
+                // Handle aliasing (if args[i] pointed to boundSym)
+                if (r === boundSym) {
+                    currentArgs.push(val);
+                } else {
+                    currentArgs.push(r);
+                }
+
+                if (typeof currentArgs[currentArgs.length - 1] === 'symbol') {
+                    stillUnbound = true;
+                }
+            }
+
+            if (stillUnbound) return true; // Defer again
+
+            return fn(...currentArgs);
+        },
+    };
+
+    // Collect all updates into one object to prevent prototype chain thrashing.
+    const updates = {};
+
+    for (const sym of unboundVars) {
+        let trace = Trace.empty;
+
+        // If the variable is already in the bindings (local or proto)
+        // we need to preserve its existing trace.
+        if (sym in bindings) {
+            const entry = bindings[sym];
+            if (entry.value === sym) { // only strictly unbound vars keep traces
+                trace = entry.trace;
+            }
+        }
+
+        updates[sym] = {
+            value: sym,
+            trace: Trace.concat(trace, Trace.of(constraintEvent))
+        };
+    }
+
+    // Single allocation for the new scope
+    return mergeBindings(bindings, updates);
+}
+
+/**
+ * Resolves a term to its current value (or itself if unbound).
+ * Iterative implementation optimized for V8.
  */
 export function resolve(term, bindings) {
-    // Base case: If a term is not a variable or is unbound, it is its
-    // own final value and has no history.
-    if (typeof term !== 'symbol' || !Object.hasOwn(bindings, term)) {
+    if (typeof term !== 'symbol') {
         return { value: term, trace: Trace.empty };
     }
 
-    // Get the binding for the current variable.
-    const binding = bindings[term];
+    let binding = bindings[term];
+    if (binding === undefined) {
+        return { value: term, trace: Trace.empty };
+    }
 
-    // Recursive step: Resolve the next value in the chain to get its
-    // ultimate value and its own historical trace.
-    const finalBinding = resolve(binding.value, bindings);
+    // We iterate as long as the binding points to a *different* symbol.
+    // If it points to a value, itself, or a missing symbol, we stop.
+    while (typeof binding.value === 'symbol' && binding.value !== term) {
+        const nextTerm = binding.value;
+        const nextBinding = bindings[nextTerm];
 
-    return {
-        value: finalBinding.value,
-        trace: Trace.concat(binding.trace, finalBinding.trace),
-    };
+        // Edge Case: Points to a symbol not in bindings (treat as value)
+        if (nextBinding === undefined) {
+            break;
+        }
+
+        term = nextTerm;
+        binding = nextBinding;
+    }
+
+    return binding;
 }
 
 /**
@@ -124,45 +233,68 @@ export function ground(term, bindings) {
     return value;
 }
 
+/**
+ * Binds a variable to a concrete value.
+ * Validates the entire accumulated trace against the new value.
+ */
 export function bind(selfBinding, otherBinding, bindings, location) {
-    const sym = selfBinding.value
-    const value = otherBinding.value
-    // Anonymous variables never bind
-    if (sym === _ || value === _) {
-        return bindings
+    // const repr1 = repr(selfBinding.value)
+    // const repr2 = repr(otherBinding.value)
+    // console.log('bind(', repr1, ',', repr2, ')')
+
+    const sym = selfBinding.value;
+    const value = otherBinding.value;
+
+    if (sym === _ || value === _) return bindings;
+    if (contains(value, sym)) return null; // Occurs check
+
+    if (typeof value === 'symbol') {
+        // Target inherits Source's history (Target + Source)
+        const combinedTrace = Trace.concat(
+            selfBinding.trace,
+            otherBinding.trace,
+        );
+
+        // Source becomes a simple pointer (Link)
+        // It no longer needs its old constraints because they are now active on the Target.
+        const linkTrace = Trace.of({ type: 'BIND', variable: value, value: sym, location });
+
+        return mergeBindings(bindings, {
+            [sym]: { value, trace: linkTrace },
+            [value]: { value, trace: combinedTrace }
+        });
     }
-    // console.log('bind', sym, '=', value, {location, trace: otherBinding.trace})
 
-    // Check if sym exists inside the value we trying to bind to.
-    if (contains(value, sym)) { return null; }
+    if (selfBinding.trace) {
+        for (const event of selfBinding.trace) {
+            if (event.check) {
+                if (!event.check(value, bindings, sym)) {
+                    return null; // Constraint Violation
+                }
+            }
+        }
+    }
 
-    const event = { type: 'BIND', variable: sym, value, location };
-    const trace = Trace.concat(
-        Trace.of(event),
+    const linkTrace = Trace.concat(
+        Trace.of({ type: 'BIND', variable: sym, value, location }),
         Trace.concat(selfBinding.trace, otherBinding.trace),
     );
 
-    return {
-        ...bindings,
-        [sym]: { value, trace },
-    };
+    return mergeBindings(bindings, {
+        [sym]: { value, trace: linkTrace },
+    });
 }
 
-/**
- * The core unification function. It returns the new bindings object on success.
- * The trace information is built directly into the binding values.
- * @returns {object|null} The new bindings object, or null on failure.
- */
 export default function unify(term1, term2, bindings, location) {
     // const repr1 = repr(term1)
     // const repr2 = repr(term2)
     // console.log('unify(', repr1, ',', repr2, ')', '...')
-
-    // if (repr1 === '{}' && repr2 === 'Z') {
+    // if (repr1 === '{a: a = 10}' && repr2 === '_') {
     //     debugger
     // }
 
-    let newBindings = unify0(term1, term2, bindings, location)
+
+    const newBindings = unify0(term1, term2, bindings, location);
     // console.log('unify(', repr1, ',', repr2, ')', '->', newBindings, { term1, term2, bindings, location })
     return newBindings
 }
@@ -172,12 +304,8 @@ function unifyResolved(b1, b2, bindings, location) {
     // const repr2 = repr(b2.value)
     // console.log('unifyResolved(', repr1, ',', repr2, ')', '...')
 
-    // if (repr1 === '{}' && repr2 === 'Z') {
-    //     debugger
-    // }
-
     let newBindings = unifyResolved0(b1, b2, bindings, location)
-    // console.log('unifyResolved(', repr1, ',', repr2, ')', '->', newBindings, { term1, term2, bindings, location })
+    // console.log('unifyResolved(', repr1, ',', repr2, ')', '->', newBindings, { b1, b2, bindings, location })
     return newBindings
 }
 
@@ -208,12 +336,9 @@ function walk(term, bindings, location) {
 }
 
 function unify0(term1, term2, bindings, location) {
-    return unifyResolved0(
-        resolve(term1, bindings),
-        resolve(term2, bindings),
-        bindings,
-        location,
-    );
+    const r1 = resolve(term1, bindings);
+    const r2 = resolve(term2, bindings);
+    return unifyResolved0(r1, r2, bindings, location);
 }
 
 function unifyResolved0(b1, b2, bindings, location) {
@@ -294,11 +419,15 @@ function unifyResolved0(b1, b2, bindings, location) {
 }
 
 Object.assign(unify, {
-    unifyResolved,
-    symbols,
+    bind,
+    constrain,
+    constraints,
+    ground,
     isGround,
     resolve,
-    bind,
+    symbols,
+    flatten,
+    unifyResolved,
     walk,
-    ground,
-})
+    mergeBindings,
+});

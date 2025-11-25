@@ -31,7 +31,9 @@ This language is a hybrid that combines the declarative power of logic programmi
   * **Destructuring**:
     * **Rule Heads (LHS):** Use standard JavaScript destructuring patterns directly in rule heads (`function rule([H,...T], {a, b: B, ...R})`). Syntax strictly follows JavaScript rules: the **rest element (`...`) must be the *last*** element/property.
     * **Rule Bodies (RHS Assignments):** Full JavaScript **spread syntax is supported** for constructing arrays and objects within assignments (`Result = [A, ...Mid, Z]`, `Result = {...Defaults, ...Overrides}`). Multiple spreads in any position are allowed.
-  * **Arithmetic & Comparison**: Perform computations by wrapping expressions in `Logic.js()` (e.g., `Sum = Logic.js(A + B)`). Use standard JS comparison operators (`>=`, `<`, `===`) as goals.
+  * **Constraints & Arithmetic**:
+    * **Native Constraints**: Use standard JS comparisons (`>`, `<`, `===`) directly in rules (e.g., `A + B > 10`). If variables are unbound, these are captured as **structural constraints** and deferred until values are available.
+    * **Eager Evaluation**: Use **`Logic.js()`** to force immediate execution of arbitrary JavaScript (e.g., `Sum = Logic.js(A + B)`).
   * **Expressions**: Use **`Logic.js()`** for arbitrary JavaScript (e.g., `FullName = Logic.js(First + " " + Last)`).
 
 ### Lexical Scoping & Higher-Order Logic
@@ -49,6 +51,8 @@ This language is a hybrid that combines the declarative power of logic programmi
   * **`Logic.optional(Default)`**: Used within assignment or destructuring to provide a "soft" default value. It unifies with the input if present (ignoring the default), or binds to the `Default` if the input is `undefined`.
   * **`Logic.is_ground`**: Succeeds if the given term contains no unbound logic variables.
   * **`Logic.findall`**: A built-in predicate to collect all solutions for a sub-goal into a single list *within* a logic program.
+  * **`Logic.trace(Goal)`**: Runs the provided `Goal` and unifies the result with a chronological log (array of strings) of the execution steps (`CALL`, `EXIT`, `REDO`, `FAIL`).
+  * **`Logic.constraints(Var)`**: Returns an array of constraint objects currently attached to the given logic variable. Useful for writing custom solvers.
 
 ### Execution Model
   * **Dual Sync/Async API**:
@@ -650,3 +654,11 @@ This difference is most important for destructuring, where a missing key or arra
 >
 > * Use `X = <value>` for **unification and assertion**.
 > * Use `X = Logic.optional(<value>)` for **optional parameters** and **destructuring with missing values**.
+
+### A Note on Native Constraint Syntax
+
+When writing native constraints (e.g., `X + Y > 10`), the compiler captures the source code to pass to external solvers. Therefore, these expressions must be **pure arithmetic**.
+
+* **Allowed**: Arithmetic operators (`+`, `-`, `*`, `/`, `%`), grouping `()`, literals, and logic variables.
+* **Forbidden**: Function calls (`Math.max(...)`), property access (`A.value`), and assignments (`A = B`).
+* **Workaround**: For unsupported operations, perform the calculation outside the constraint using `Logic.js()`.

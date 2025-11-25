@@ -23,6 +23,7 @@ export default ({ target, rawString, paramNames, argValues }) => {
         `const Logic = {`,
         `    fail: (reason) => (shouldFail = {reason}),`,
         `    isGround: (v) => unify.isGround(v),`,
+        `    constraints: (v) => unify.constraints(v, bindings),`,
         `}; // TODO only lazily insert the Logic helper`,
         
         // Execute the IIFE, passing in grounded logic vars and raw imports

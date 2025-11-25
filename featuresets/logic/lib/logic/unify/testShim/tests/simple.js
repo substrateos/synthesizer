@@ -39,7 +39,11 @@ export default [
     "returns": {
       "A": {
         "value": { "$var": "B" },
-        "trace": [{ "type": "BIND", "variable": { "$var": "A" }, "value": { "$var": "B" }, "location": { "rule": "2.3" } }]
+        "trace": [{ "type": "BIND", "variable": { "$var": "B" }, "value": { "$var": "A" }, "location": { "rule": "2.3" } }]
+      },
+      "B": {
+        "value": { "$var": "B" },
+        "trace": null
       }
     }
   },

@@ -23,7 +23,7 @@ export default function repr(arg, bindings=null, visited=new Set(), reprRec) {
     visited.add(arg);
 
     if (typeof arg === 'symbol') {
-        if (bindings && Object.hasOwn(bindings, arg)) {
+        if (bindings && arg in bindings) {
             const boundValue = bindings[arg].value;
             // Format as "Var = Value"
             return `${arg.description} = ${reprRec(boundValue)}`;

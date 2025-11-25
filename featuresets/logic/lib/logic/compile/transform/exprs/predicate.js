@@ -49,7 +49,7 @@ export default function transformPredicate(predicateDef, scope, hasImports) {
             ...importCheck,
             'let yieldValue;',
             '',
-            `yieldValue = {type: 'fork', forks: ${forksArray}};`,
+            `yieldValue = {type: 'fork', forksNeedBindings: true, forks: ${forksArray}};`,
             blockExpr('while (true)',
                 'const step = yield yieldValue;',
                 'let { pc, oppc, clauseId } = step.resume ?? {};',

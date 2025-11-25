@@ -6,10 +6,12 @@ import findall from "@/lib/logic/findall.js"
 import BFS from "@/lib/logic/schedulers/BFS.js"
 import DFS from "@/lib/logic/schedulers/DFS.js"
 import compile from "@/lib/logic/compile/program.js"
+import parse from "@/lib/logic/parser.js"
 import runtime from "@/lib/logic/runtime.js"
 
 export default {
     compile,
+    parse,
     runtime,
     findall,
     solve,

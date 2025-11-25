@@ -1,4 +1,5 @@
-import { ground, symbols } from "@/lib/logic/unify.js";
+import symbols from "@/lib/logic/unify/symbols.js";
+import { ground } from "@/lib/logic/unify.js";
 
 /**
  * A simplified version of resolveSolution that returns a simple object
@@ -10,7 +11,7 @@ export default function resolveSolutionValues(goal, finalBindings) {
 
     for (const variable of queryVariables) {
         // Check if the variable was actually bound to something.
-        if (Object.hasOwn(finalBindings, variable)) {
+        if (variable in finalBindings) {
             const value = ground(variable, finalBindings);
             // Store under the original variable.
             solution[variable] = value

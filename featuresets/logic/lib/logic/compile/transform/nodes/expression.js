@@ -63,10 +63,11 @@ function _generatePattern(transformExpression, isObject, nodes, context) {
 }
 
 const InfixExpression = (transformExpression, node, context) => infixExpr({
-    left: transformExpression(node.left, context),
-    right: transformExpression(node.right, context),
+    leftNode: node.left,
+    rightNode: node.right,
     operator: node.operator,
     startLocation: context.getRawSourceLocation(node.start),
+    transformExpression,
 }, context)
 
 const expressionTransformers = {

@@ -308,7 +308,11 @@ export default [
         "returns": {
             "X": {
                 "value": { "$var": "Y" },
-                "trace": [{ "type": "BIND", "variable": { "$var": "X" }, "value": { "$var": "Y" }, "location": { "rule": "T15" } }]
+                "trace": [{ "type": "BIND", "variable": { "$var": "Y" }, "value": { "$var": "X" }, "location": { "rule": "T15" } }]
+            },
+            "Y": {
+                "value": { "$var": "Y" },
+                "trace": null
             }
         }
     },
@@ -329,7 +333,11 @@ export default [
         "returns": {
             "X": {
                 "value": { "$var": "Y" },
-                "trace": [{ "type": "BIND", "variable": { "$var": "X" }, "value": { "$var": "Y" }, "location": { "rule": "T16" } }]
+                "trace": [{ "type": "BIND", "variable": { "$var": "Y" }, "value": { "$var": "X" }, "location": { "rule": "T16" } }]
+            },
+            "Y": {
+                "value": { "$var": "Y" },
+                "trace": null
             }
         }
     },
@@ -374,11 +382,19 @@ export default [
         "returns": {
             "X": {
                 "value": { "$var": "A" },
-                "trace": [{ "type": "BIND", "variable": { "$var": "X" }, "value": { "$var": "A" }, "location": { "rule": "T18" } }]
+                "trace": [{ "type": "BIND", "variable": { "$var": "A" }, "value": { "$var": "X" }, "location": { "rule": "T18" } }]
             },
             "Y": {
                 "value": { "$var": "B" },
-                "trace": [{ "type": "BIND", "variable": { "$var": "Y" }, "value": { "$var": "B" }, "location": { "rule": "T18" } }]
+                "trace": [{ "type": "BIND", "variable": { "$var": "B" }, "value": { "$var": "Y" }, "location": { "rule": "T18" } }]
+            },
+            "A": {
+                "value": { "$var": "A" },
+                "trace": null
+            },
+            "B": {
+                "value": { "$var": "B" },
+                "trace": null
             }
         }
     },
@@ -756,8 +772,8 @@ export default [
                 },
                 "trace": []
             },
-            "B": { "value": { "$var": "W" }, "trace": [{ "type": "BIND", "variable": { "$var": "B" }, "value": { "$var": "W" }, "location": { "rule": "Pat-VarDefault-Override" } }] },
-            "W": { "value": 99, "trace": [{ "type": "BIND", "variable": { "$var": "W" }, "value": 99, "location": { "rule": "Pat-VarDefault-Override" } }, { "type": "BIND", "variable": { "$var": "B" }, "value": { "$var": "W" }, "location": { "rule": "Pat-VarDefault-Override" } }] }
+            "B": { "value": { "$var": "W" }, "trace": [{ "type": "BIND", "variable": { "$var": "W" }, "value": { "$var": "B" }, "location": { "rule": "Pat-VarDefault-Override" } }] },
+            "W": { "value": 99, "trace": [{ "type": "BIND", "variable": { "$var": "W" }, "value": 99, "location": { "rule": "Pat-VarDefault-Override" } }] }
         }
     },
     {

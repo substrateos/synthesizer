@@ -62,7 +62,7 @@ export default (transformExpression, node, context) => {
             [1,
                 `if (subgoalSolution) {`,
                 `    // Solution found. Create a combined binding context for resolution.`,
-                `    const subgoalBindings = { ...bindings, ...subgoalSolution };`,
+                `    const subgoalBindings = unify.mergeBindings(bindings, subgoalSolution);`,
                 ``,
                 `    // Build the result object from the template and add to list.`,
                 `    const subgoalResult = ${templateCode};`,

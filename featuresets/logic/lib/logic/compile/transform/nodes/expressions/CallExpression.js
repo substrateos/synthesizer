@@ -18,20 +18,27 @@ export default function transformCallExpression(transformExpression, node, conte
 
     const argsExpr = `[${node.arguments.map(argNode => groundExpr(transformExpression(argNode, context), 'bindings')).join(', ')}]`;
 
+    const { tracerExpr, resumeProps, solutionExpr } = context;
+
+    const commonOpts = {
+        argsExpr,
+        startLocation: context.getRawSourceLocation(node.start),
+        tracerExpr,
+        resumeProps,
+        solutionExpr
+    };
+
     if (resolution.type === 'imported') {
-        // Use definition.mangledName and unwrap.
         return callExpr({
             resolverExpr: `${resolution.definition.mangledName}[resolverTag]`,
-            argsExpr,
-            startLocation: context.getRawSourceLocation(node.start),
+            ...commonOpts
         });
     }
 
     if (resolution.type === 'variable') {
         return callExpr({
             resolverExpr: valueExpr(transformExpression(node.callee, context), 'bindings'),
-            argsExpr,
-            startLocation: context.getRawSourceLocation(node.start),
+            ...commonOpts
         });
     }
 
@@ -42,8 +49,7 @@ export default function transformCallExpression(transformExpression, node, conte
 
         return callExpr({
             resolverExpr: `${resolverName}.bind(null, ${scopes})`,
-            argsExpr,
-            startLocation: context.getRawSourceLocation(node.start),
+            ...commonOpts
         });
     }
 

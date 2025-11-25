@@ -1,8 +1,6 @@
 import switchExpr from "@/lib/logic/compile/transform/exprs/switch.js";
 
-export default ({ resolverExpr, argsExpr, startLocation }) => {
-    const resumeTokenProperties = `clauseId, bindings, vars, scopes`;
-
+export default ({ resolverExpr, argsExpr, startLocation, resumeProps, tracerExpr, solutionExpr=[] }) => {
     if (typeof argsExpr !== 'string') {
         throw new Error("expr for args must be simple expression")
     }
@@ -12,6 +10,10 @@ export default ({ resolverExpr, argsExpr, startLocation }) => {
     }
 
     const location = JSON.stringify(startLocation);
+    
+    const resumeTokenProperties = `clauseId, bindings, vars, scopes${resumeProps ? `, ${resumeProps}` : ''}`;
+
+    const tracerProp = tracerExpr ? `tracer: ${tracerExpr}` : '';
 
     return switchExpr('oppc', [
         ['undefined', // This is the first CALL for this subgoal
@@ -27,7 +29,9 @@ export default ({ resolverExpr, argsExpr, startLocation }) => {
             `    resolver,`,
             `    goal: ${argsExpr},`,
             `    resume: { ${resumeTokenProperties}, pc, oppc: 1 },`,
+            `    bindings,`,
             `    location: ${location},`,
+            `    ${tracerProp}`,
             `};`,
             e => e.continue()
         ],
@@ -44,6 +48,7 @@ export default ({ resolverExpr, argsExpr, startLocation }) => {
         ],
         [1,  // Resuming after a subgoal EXIT or FAIL
             `if (subgoalSolution) { // Subgoal succeeded`,
+            solutionExpr, 
             `    if (subgoalRedoKey) { // More solutions might exist`,
             `        yieldValue = {`,
             `            type: 'fork',`,
@@ -53,7 +58,7 @@ export default ({ resolverExpr, argsExpr, startLocation }) => {
             `                },`,
             `            ],`,
             `            resume: { // Continue forward *now* with the current solution`,
-            `                ${resumeTokenProperties}, pc: pc + 1, bindings: { ...bindings, ...subgoalSolution },`,
+            `                ${resumeTokenProperties}, pc: pc + 1, bindings: unify.mergeBindings(bindings, subgoalSolution),`,
             `            },`,
             `            location: ${location},`,
             `        };`,
@@ -61,7 +66,7 @@ export default ({ resolverExpr, argsExpr, startLocation }) => {
             `    } else {`,
             `        // This was the *last* solution. Merge bindings and advance PC.`,
             `        pc++;`,
-            `        bindings = { ...bindings, ...subgoalSolution };`,
+            `        bindings = unify.mergeBindings(bindings, subgoalSolution);`,
             `        oppc = undefined;`,
             `        subgoalRedoKey = undefined;`,
             `        subgoalSolution = undefined;`,
@@ -76,4 +81,3 @@ export default ({ resolverExpr, argsExpr, startLocation }) => {
         ]
     ])
 };
-

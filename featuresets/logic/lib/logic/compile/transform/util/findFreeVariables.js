@@ -174,14 +174,16 @@ export default function findFreeVariables({ ast }) {
             const parent = ancestors[ancestors.length - 2];
 
             // Step 1: Ignore identifiers that are not variable references.
-            if ((parent.type === 'MemberExpression' && parent.property === node && !parent.computed) ||
-                (parent.type === 'Property' && parent.key === node && !parent.computed) ||
-                (parent.type === 'VariableDeclarator' && parent.id === node) ||
-                (parent.type.includes('Function') && parent.id === node) ||
-                ((parent.type === 'ClassDeclaration' || parent.type === 'ClassExpression') && parent.id === node) ||
-                (parent.type === 'UnaryExpression' && parent.operator === 'typeof' && parent.argument === node)
-            ) {
-                return;
+            if (parent) {
+                if ((parent.type === 'MemberExpression' && parent.property === node && !parent.computed) ||
+                    (parent.type === 'Property' && parent.key === node && !parent.computed) ||
+                    (parent.type === 'VariableDeclarator' && parent.id === node) ||
+                    (parent.type.includes('Function') && parent.id === node) ||
+                    ((parent.type === 'ClassDeclaration' || parent.type === 'ClassExpression') && parent.id === node) ||
+                    (parent.type === 'UnaryExpression' && parent.operator === 'typeof' && parent.argument === node)
+                ) {
+                    return;
+                }
             }
 
             // Step 2: If it's a reference, check the scope chain to see if it's declared.

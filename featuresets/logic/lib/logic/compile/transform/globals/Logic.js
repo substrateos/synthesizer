@@ -1,8 +1,10 @@
 import compile from "@/lib/logic/compile/transform/builtins/compile.js";
 import config from "@/lib/logic/compile/transform/builtins/config.js";
+import trace from "@/lib/logic/compile/transform/builtins/trace.js";
 import findall from "@/lib/logic/compile/transform/builtins/findall.js";
 import optional from "@/lib/logic/compile/transform/builtins/optional.js";
 import is_ground from "@/lib/logic/compile/transform/builtins/is_ground.js";
+import constraints from "@/lib/logic/compile/transform/builtins/constraints.js";
 import js from "@/lib/logic/compile/transform/builtins/js.js";
 
 /**
@@ -11,9 +13,11 @@ import js from "@/lib/logic/compile/transform/builtins/js.js";
 const Logic = {
     compile,
     config,
+    trace,
     findall,
     optional,
     is_ground,
+    constraints,
     js,
 };
 

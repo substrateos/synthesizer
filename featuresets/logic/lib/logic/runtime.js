@@ -10,6 +10,7 @@ import {
 
 import GoalSeries from "@/lib/logic/GoalSeries.js";
 import unify from "@/lib/logic/unify.js";
+import createTracer from "@/lib/logic/tracer.js";
 import ObjectPattern from "@/lib/logic/unify/ObjectPattern.js";
 import ArrayPattern from "@/lib/logic/unify/ArrayPattern.js";
 import Value from "@/lib/logic/unify/Value.js";
@@ -119,6 +120,7 @@ function createConfiguredQuery(config) {
 
 export default {
     baseConfig,
+    createTracer,
     createConfiguredQuery,
     predicatesTag,
     resolverTag,

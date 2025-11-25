@@ -225,11 +225,15 @@ export default [
     "returns": {
       "X": {
         "value": { "$var": "Pivot" },
-        "trace": [{ "type": "BIND", "variable": { "$var": "X" }, "value": { "$var": "Pivot" }, "location": { "rule": "T14" } }]
+        "trace": [{ "type": "BIND", "variable": { "$var": "Pivot" }, "value": { "$var": "X" }, "location": { "rule": "T14" } }]
       },
       "Y": {
         "value": { "$var": "Pivot" },
-        "trace": [{ "type": "BIND", "variable": { "$var": "Y" }, "value": { "$var": "Pivot" }, "location": { "rule": "T14" } }]
+        "trace": [{ "type": "BIND", "variable": { "$var": "Pivot" }, "value": { "$var": "Y" }, "location": { "rule": "T14" } }]
+      },
+      "Pivot": {
+        "value": { "$var": "Pivot" },
+        "trace": null
       }
     }
   },
@@ -246,11 +250,15 @@ export default [
     "returns": {
       "X": {
         "value": { "$var": "Pivot" },
-        "trace": [{ "type": "BIND", "variable": { "$var": "X" }, "value": { "$var": "Pivot" }, "location": { "rule": "T15" } }]
+        "trace": [{ "type": "BIND", "variable": { "$var": "Pivot" }, "value": { "$var": "X" }, "location": { "rule": "T15" } }]
       },
       "Y": {
         "value": { "$var": "Pivot" },
-        "trace": [{ "type": "BIND", "variable": { "$var": "Y" }, "value": { "$var": "Pivot" }, "location": { "rule": "T15" } }]
+        "trace": [{ "type": "BIND", "variable": { "$var": "Pivot" }, "value": { "$var": "Y" }, "location": { "rule": "T15" } }]
+      },
+      "Pivot": {
+        "value": { "$var": "Pivot" },
+        "trace": null
       }
     }
   },
@@ -267,7 +275,11 @@ export default [
     "returns": {
       "X": {
         "value": { "$var": "Y" },
-        "trace": [{ "type": "BIND", "variable": { "$var": "X" }, "value": { "$var": "Y" }, "location": { "rule": "T16" } }]
+        "trace": [{ "type": "BIND", "variable": { "$var": "Y" }, "value": { "$var": "X" }, "location": { "rule": "T16" } }]
+      },
+      "Y": {
+        "value": { "$var": "Y" },
+        "trace": null
       }
     }
   },
@@ -284,11 +296,15 @@ export default [
     "returns": {
       "X": {
         "value": { "$var": "Pivot" },
-        "trace": [{ "type": "BIND", "variable": { "$var": "X" }, "value": { "$var": "Pivot" }, "location": { "rule": "T17" } }]
+        "trace": [{ "type": "BIND", "variable": { "$var": "Pivot" }, "value": { "$var": "X" }, "location": { "rule": "T17" } }]
       },
       "Y": {
         "value": { "$var": "Pivot" },
-        "trace": [{ "type": "BIND", "variable": { "$var": "Y" }, "value": { "$var": "Pivot" }, "location": { "rule": "T17" } }]
+        "trace": [{ "type": "BIND", "variable": { "$var": "Pivot" }, "value": { "$var": "Y" }, "location": { "rule": "T17" } }]
+      },
+      "Pivot": {
+        "value": { "$var": "Pivot" },
+        "trace": null
       }
     }
   },
@@ -305,11 +321,15 @@ export default [
     "returns": {
       "X": {
         "value": { "$var": "Pivot" },
-        "trace": [{ "type": "BIND", "variable": { "$var": "X" }, "value": { "$var": "Pivot" }, "location": { "rule": "T18" } }]
+        "trace": [{ "type": "BIND", "variable": { "$var": "Pivot" }, "value": { "$var": "X" }, "location": { "rule": "T18" } }]
       },
       "Y": {
         "value": { "$var": "Pivot" },
-        "trace": [{ "type": "BIND", "variable": { "$var": "Y" }, "value": { "$var": "Pivot" }, "location": { "rule": "T18" } }]
+        "trace": [{ "type": "BIND", "variable": { "$var": "Pivot" }, "value": { "$var": "Y" }, "location": { "rule": "T18" } }]
+      },
+      "Pivot": {
+        "value": { "$var": "Pivot" },
+        "trace": null
       }
     }
   },
@@ -420,8 +440,12 @@ export default [
       },
       "Y": {
         "value": { "$var": "Pivot" },
-        "trace": [{ "type": "BIND", "variable": { "$var": "Y" }, "value": { "$var": "Pivot" }, "location": { "rule": "T25" } }]
-      }
+        "trace": [{ "type": "BIND", "variable": { "$var": "Pivot" }, "value": { "$var": "Y" }, "location": { "rule": "T25" } }]
+      },
+      "Pivot": {
+        "value": { "$var": "Pivot" },
+        "trace": null
+      },
     }
   },
 
@@ -569,7 +593,7 @@ export default [
       },
       "__B": {
         "value": { "$var": "B" },
-        "trace": [{ "type": "BIND", "variable": { "$var": "__B" }, "value": { "$var": "B" }, "location": { "rule": "Default-Obj-3" } }]
+        "trace": [{ "type": "BIND", "variable": { "$var": "B" }, "value": { "$var": "__B" }, "location": { "rule": "Default-Obj-3" } }]
       }
     }
   },
@@ -670,7 +694,7 @@ export default [
       },
       "__B": {
         "value": { "$var": "B" },
-        "trace": [{ "type": "BIND", "variable": { "$var": "__B" }, "value": { "$var": "B" }, "location": { "rule": "Default-ObjPat-4" } }]
+        "trace": [{ "type": "BIND", "variable": { "$var": "B" }, "value": { "$var": "__B" }, "location": { "rule": "Default-ObjPat-4" } }]
       }
     }
   },

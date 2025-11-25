@@ -20,14 +20,15 @@ export default function clauseExpr({declaredVars, body}) {
                     // 'vars', 'bindings', 'scopes' are clause-instance specific state
                     `const parentScope = parentScopes ? parentScopes[parentScopes.length - 1] : null;`,
                     `vars = { ...parentScope?.vars, ${localSymbolsInit} };`,
-                    `bindings = parentScope?.bindings || {};`,
+                    `bindings = unify.flatten(parentScope?.bindings || null, step.callerBindings, goal);`,
                     `scopes = parentScopes || [];`,
                     `pc = 0;`, // Start execution at the first goal
                 )),
             switchExpr('pc', [ // Main "computed goto" state machine
                 ...body.map((expr, pc) => [pc, expr]),
                 [body.length, // exit case, pc after the last goal
-                    `yieldValue = { type: 'exit', solution: bindings };`,
+                    `const solution = unify.flatten(null, bindings, Object.getOwnPropertySymbols(bindings));`, // before exiting, ensure Local layer is self-contained
+                    `yieldValue = { type: 'exit', solution };`,
                     e => e.break()],
                 ['default',
                     `throw new Error(\`Invalid program counter in clause \${clauseId}: \${pc}\`);`,
