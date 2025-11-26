@@ -103,7 +103,15 @@ const expressionTransformers = {
         }
 
         if (node.name === '_') return `_`;
-        return `vars.${node.name}`;
+
+        if (resolution?.type === 'variable') {
+            return `vars.${node.name}`;
+        }
+
+        // If we get here, the variable 'X' was used (e.g. in a call or assignment) 
+        // but never declared in the head or with 'var'.
+        const loc = context.getRawSourceLocation(node.start);
+        throw new Error(`ReferenceError: Identifier '${node.name}' is not defined. (line ${loc.line}, column ${loc.column})`);
     },
     AssignmentExpression: (transformExpression, node, context) => {
         if (context.lhs) throw new SyntaxError("chained assignments are not yet supported");

@@ -34,6 +34,7 @@ export default {
         'lib/logic/testShim/tests/tracer.js',
         'lib/logic/testShim/tests/typeof.js',
         'lib/logic/testShim/tests/facts.js',
+        'lib/logic/testShim/tests/compiler-errors.js',
         'lib/logic/testShim/tests/builtins-config.js',
         'lib/logic/testShim/tests/builtins-compile.js',
         'lib/logic/testShim/tests/builtins-optional.js',
