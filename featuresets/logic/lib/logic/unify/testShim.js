@@ -23,21 +23,10 @@ function serialize(data, library) {
         return { [key]: [data.left, data.right].map(serialize) };
     }
     if (data instanceof ArrayPattern) {
-        return { '$class': 'ArrayPattern', 'args': data.parts.map(serialize) };
+        return { '$arrayPattern': data.parts.map(serialize) };
     }
     if (data instanceof ObjectPattern) {
-        return { '$class': 'ObjectPattern', 'args': data.parts.map(serialize) };
-    }
-    if (data instanceof ObjectPattern) {
-        // Serialize 'isExact' only if it's true
-        const serialized = {
-            '$class': 'ObjectPattern',
-            'args': data.parts.map(serialize)
-        };
-        if (data.isExact) {
-            serialized.isExact = true;
-        }
-        return serialized;
+        return { '$objectPattern': data.parts.map(serialize) };
     }
     // Check if this object is a custom unifier/constraint.
     if (data[unifyTag] && library?.constraints) {
@@ -72,6 +61,12 @@ function deserialize(data, library) {
             const Cls = classes[data['$class']];
             if (!Cls) throw new Error(`Unknown class: ${data['$class']}`);
             return new Cls(...deserialize(data.args || [], library));
+        }
+        if (data['$arrayPattern']) {
+            return ArrayPattern.from(deserialize(data['$arrayPattern'], library));
+        }
+        if (data['$objectPattern']) {
+            return ObjectPattern.from(deserialize(data['$objectPattern'], library));
         }
         if (data['$optional']) {
             return Value.optional(...deserialize(data['$optional'], library));
@@ -141,8 +136,6 @@ export default function ({ term1, term2, bindings, location }) {
             Vector: class Vector {
                 constructor(x, y) { this.x = x; this.y = y; }
             },
-            ArrayPattern,
-            ObjectPattern,
         },
         constraints: {
             isPositive: {

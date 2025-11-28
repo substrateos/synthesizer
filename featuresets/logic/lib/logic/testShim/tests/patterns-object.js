@@ -140,7 +140,7 @@ export default [
       solutions: {
         ground_overwrite: [{"Obj": {"c": 3, "a": 99, "d": 4, "b": 100}}],
         ground_unbound_rest: [{
-          "Obj": {"$class": "ObjectPattern", "args": [{"a": 99, "b": 2, "d": 4}, {"$var": "R1"}]},
+          "Obj": {"$objectPattern": [{"a": 99, "b": 2, "d": 4}, {"$var": "R1"}]},
           "R1": {"$var": "R1"}
         }]
       }
@@ -246,8 +246,7 @@ export default [
         pattern_vs_pattern: [
           {
             "R": {
-              "$class": "ObjectPattern",
-              "args": [
+              "$objectPattern": [
                 {
                   "b": 2
                 },
@@ -257,8 +256,7 @@ export default [
               ]
             },
             "S": {
-              "$class": "ObjectPattern",
-              "args": [
+              "$objectPattern": [
                 {
                   "a": 1
                 },

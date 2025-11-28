@@ -160,7 +160,7 @@ class ArrayPattern {
             }
         }
         // Otherwise, we need a pattern instance to handle the logic.
-        return new this(...parts);
+        return new this(parts);
     }
 
     /**
@@ -174,7 +174,7 @@ class ArrayPattern {
     /**
      * @param {Array<any>} parts - An array of terms.
      */
-    constructor(...parts) {
+    constructor(parts) {
         this.parts = parts || [];
     }
 

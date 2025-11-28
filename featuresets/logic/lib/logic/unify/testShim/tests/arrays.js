@@ -7,8 +7,7 @@ export default [
         "description": "Custom Unifier: ArrayPattern de-structuring",
         "params": [{
             "term1": {
-                "$class": "ArrayPattern",
-                "args": [
+                "$arrayPattern": [
                     [{ "$var": "H" }],
                     { "$var": "T" }
                 ]
@@ -42,8 +41,7 @@ export default [
         "description": "T2: [...X, 1] vs. [a, b, 1] (Standard Test)",
         "params": [{
             "term1": {
-                "$class": "ArrayPattern",
-                "args": [{ "$var": "X" }, [1]]
+                "$arrayPattern": [{ "$var": "X" }, [1]]
             },
             "term2": ["a", "b", 1],
             "bindings": {},
@@ -60,8 +58,7 @@ export default [
         "description": "T3: [...X, 1] vs. [a, b, 2] (Failure Test)",
         "params": [{
             "term1": {
-                "$class": "ArrayPattern",
-                "args": [{ "$var": "X" }, [1]]
+                "$arrayPattern": [{ "$var": "X" }, [1]]
             },
             "term2": ["a", "b", 2],
             "bindings": {},
@@ -73,8 +70,7 @@ export default [
         "description": "T4: [...X, 1] vs. [1] (Edge Case - Spread is empty)",
         "params": [{
             "term1": {
-                "$class": "ArrayPattern",
-                "args": [{ "$var": "X" }, [1]]
+                "$arrayPattern": [{ "$var": "X" }, [1]]
             },
             "term2": [1],
             "bindings": {},
@@ -91,8 +87,7 @@ export default [
         "description": "T5: [...X, 1] vs. [] (Failure Test - Not enough elements)",
         "params": [{
             "term1": {
-                "$class": "ArrayPattern",
-                "args": [{ "$var": "X" }, [1]]
+                "$arrayPattern": [{ "$var": "X" }, [1]]
             },
             "term2": [],
             "bindings": {},
@@ -104,8 +99,7 @@ export default [
         "description": "T6: [1, ...X] vs. [1, 2, 3] (Classic Head/Tail)",
         "params": [{
             "term1": {
-                "$class": "ArrayPattern",
-                "args": [[1], { "$var": "X" }]
+                "$arrayPattern": [[1], { "$var": "X" }]
             },
             "term2": [1, 2, 3],
             "bindings": {},
@@ -122,8 +116,7 @@ export default [
         "description": "T7: [...X] vs. [] (Empty Spread)",
         "params": [{
             "term1": {
-                "$class": "ArrayPattern",
-                "args": [{ "$var": "X" }]
+                "$arrayPattern": [{ "$var": "X" }]
             },
             "term2": [],
             "bindings": {},
@@ -140,8 +133,7 @@ export default [
         "description": "T8: [1, ...X, 5] vs. [1, 2, 3, 4, 5] (Middle Spread)",
         "params": [{
             "term1": {
-                "$class": "ArrayPattern",
-                "args": [
+                "$arrayPattern": [
                     [1],
                     { "$var": "X" },
                     [5]
@@ -162,8 +154,7 @@ export default [
         "description": "T9: [1, ...X, 5] vs. [1, 5] (Empty Middle Spread)",
         "params": [{
             "term1": {
-                "$class": "ArrayPattern",
-                "args": [
+                "$arrayPattern": [
                     [1],
                     { "$var": "X" },
                     [5]
@@ -184,8 +175,7 @@ export default [
         "description": "T10: [1, ...X, 5] vs. [1, 2, 3, 4, 6] (Failure Test - Mismatched end)",
         "params": [{
             "term1": {
-                "$class": "ArrayPattern",
-                "args": [
+                "$arrayPattern": [
                     [1],
                     { "$var": "X" },
                     [5]
@@ -201,8 +191,7 @@ export default [
         "description": "T11: [...X, 2, ...Y] vs. [1, 2, 3] (Split Spread)",
         "params": [{
             "term1": {
-                "$class": "ArrayPattern",
-                "args": [
+                "$arrayPattern": [
                     { "$var": "X" },
                     [2],
                     { "$var": "Y" }
@@ -227,8 +216,7 @@ export default [
         "description": "T12: [...X, ...Y] vs. [1, 2, 3] (Ambiguous Spread - checks precedence)",
         "params": [{
             "term1": {
-                "$class": "ArrayPattern",
-                "args": [
+                "$arrayPattern": [
                     { "$var": "X" },
                     { "$var": "Y" }
                 ]
@@ -252,8 +240,7 @@ export default [
         "description": "T13: [...X, 1, ...Y] vs. [a, b, 2, c, d] (Failure Test - Mismatched middle)",
         "params": [{
             "term1": {
-                "$class": "ArrayPattern",
-                "args": [
+                "$arrayPattern": [
                     { "$var": "X" },
                     [1],
                     { "$var": "Y" }
@@ -269,8 +256,7 @@ export default [
         "description": "T14: [...X, 1, ...Y] vs. [1] (Empty splits)",
         "params": [{
             "term1": {
-                "$class": "ArrayPattern",
-                "args": [
+                "$arrayPattern": [
                     { "$var": "X" },
                     [1],
                     { "$var": "Y" }
@@ -295,12 +281,10 @@ export default [
         "description": "T15: [...X] vs. [...Y] (Symmetric Spread vs. Spread)",
         "params": [{
             "term1": {
-                "$class": "ArrayPattern",
-                "args": [{ "$var": "X" }]
+                "$arrayPattern": [{ "$var": "X" }]
             },
             "term2": {
-                "$class": "ArrayPattern",
-                "args": [{ "$var": "Y" }]
+                "$arrayPattern": [{ "$var": "Y" }]
             },
             "bindings": {},
             "location": { "rule": "T15" }
@@ -320,12 +304,10 @@ export default [
         "description": "T16: [...X, 1] vs. [...Y, 1] (Symmetric Complex vs. Complex)",
         "params": [{
             "term1": {
-                "$class": "ArrayPattern",
-                "args": [{ "$var": "X" }, [1]]
+                "$arrayPattern": [{ "$var": "X" }, [1]]
             },
             "term2": {
-                "$class": "ArrayPattern",
-                "args": [{ "$var": "Y" }, [1]]
+                "$arrayPattern": [{ "$var": "Y" }, [1]]
             },
             "bindings": {},
             "location": { "rule": "T16" }
@@ -345,12 +327,10 @@ export default [
         "description": "T17: [...X, 1] vs. [...Y, 2] (Symmetric Failure)",
         "params": [{
             "term1": {
-                "$class": "ArrayPattern",
-                "args": [{ "$var": "X" }, [1]]
+                "$arrayPattern": [{ "$var": "X" }, [1]]
             },
             "term2": {
-                "$class": "ArrayPattern",
-                "args": [{ "$var": "Y" }, [2]]
+                "$arrayPattern": [{ "$var": "Y" }, [2]]
             },
             "bindings": {},
             "location": { "rule": "T17" }
@@ -361,16 +341,14 @@ export default [
         "description": "T18: [...X, 1, ...Y] vs. [...A, 1, ...B] (Super Symmetric)",
         "params": [{
             "term1": {
-                "$class": "ArrayPattern",
-                "args": [
+                "$arrayPattern": [
                     { "$var": "X" },
                     [1],
                     { "$var": "Y" }
                 ]
             },
             "term2": {
-                "$class": "ArrayPattern",
-                "args": [
+                "$arrayPattern": [
                     { "$var": "A" },
                     [1],
                     { "$var": "B" }
@@ -402,8 +380,7 @@ export default [
         "description": "T19: (Mergesort Bug) Pattern-vs-Pattern unification with pre-bound variables",
         "params": [{
             "term1": {
-                "$class": "ArrayPattern",
-                "args": [
+                "$arrayPattern": [
                     [{ "$var": "X1" }],
                     { "$var": "XT" }
                 ]
@@ -412,8 +389,7 @@ export default [
             "bindings": {
                 "All": {
                     "value": {
-                        "$class": "ArrayPattern",
-                        "args": [
+                        "$arrayPattern": [
                             { "$var": "xs" },
                             { "$var": "ys" }
                         ]
@@ -442,7 +418,7 @@ export default [
             },
             "All": {
                 "value": {
-                    "$class": "ArrayPattern", "args": [
+                    "$arrayPattern": [
                         { "$var": "xs" },
                         { "$var": "ys" }
                     ]
@@ -463,15 +439,13 @@ export default [
         "description": "T20: (Grounding) Grounding a nested pattern during unifyAgainstArray",
         "params": [{
             "term1": {
-                "$class": "ArrayPattern",
-                "args": [{ "$var": "X" }, [3]]
+                "$arrayPattern": [{ "$var": "X" }, [3]]
             },
             "term2": [1, 2, 3],
             "bindings": {
                 "X": {
                     "value": {
-                        "$class": "ArrayPattern",
-                        "args": [[1], { "$var": "Y" }]
+                        "$arrayPattern": [[1], { "$var": "Y" }]
                     },
                     "trace": []
                 },
@@ -481,7 +455,7 @@ export default [
         }],
         "returns": {
             "X": {
-                "value": { "$class": "ArrayPattern", "args": [[1], { "$var": "Y" }] },
+                "value": { "$arrayPattern": [[1], { "$var": "Y" }] },
                 "trace": []
             },
             "Y": { "value": [2], "trace": [] }
@@ -491,15 +465,13 @@ export default [
         "description": "T21: (Symmetric Fallback) Unify two partially unbound patterns",
         "params": [{
             "term1": {
-                "$class": "ArrayPattern",
-                "args": [[1], { "$var": "X" }]
+                "$arrayPattern": [[1], { "$var": "X" }]
             },
             "term2": { "$var": "All" },
             "bindings": {
                 "All": {
                     "value": {
-                        "$class": "ArrayPattern",
-                        "args": [{ "$var": "Y" }, [2]]
+                        "$arrayPattern": [{ "$var": "Y" }, [2]]
                     },
                     "trace": []
                 }
@@ -508,7 +480,7 @@ export default [
         }],
         "returns": {
             "All": {
-                "value": { "$class": "ArrayPattern", "args": [{ "$var": "Y" }, [2]] },
+                "value": { "$arrayPattern": [{ "$var": "Y" }, [2]] },
                 "trace": []
             },
             "X": {
@@ -529,15 +501,13 @@ export default [
             "bindings": {
                 "A": {
                     "value": {
-                        "$class": "ArrayPattern",
-                        "args": [[1], { "$var": "X" }]
+                        "$arrayPattern": [[1], { "$var": "X" }]
                     },
                     "trace": []
                 },
                 "B": {
                     "value": {
-                        "$class": "ArrayPattern",
-                        "args": [{ "$var": "Y" }, [2]]
+                        "$arrayPattern": [{ "$var": "Y" }, [2]]
                     },
                     "trace": []
                 },
@@ -548,11 +518,11 @@ export default [
         }],
         "returns": {
             "A": {
-                "value": { "$class": "ArrayPattern", "args": [[1], { "$var": "X" }] },
+                "value": { "$arrayPattern": [[1], { "$var": "X" }] },
                 "trace": []
             },
             "B": {
-                "value": { "$class": "ArrayPattern", "args": [{ "$var": "Y" }, [2]] },
+                "value": { "$arrayPattern": [{ "$var": "Y" }, [2]] },
                 "trace": []
             },
             "X": { "value": [2], "trace": [] },
@@ -563,8 +533,7 @@ export default [
         "description": "T23: (Non-Greedy Split) Test `...X, Y` logic with `Y` as a fixed (non-spread) part",
         "params": [{
             "term1": {
-                "$class": "ArrayPattern",
-                "args": [{ "$var": "X" }, [{ "$var": "Y" }]]
+                "$arrayPattern": [{ "$var": "X" }, [{ "$var": "Y" }]]
             },
             "term2": [1, 2, 3],
             "bindings": {},
@@ -585,8 +554,7 @@ export default [
         "description": "T24: (Non-Greedy Split) Failing lookahead due to pre-bound var",
         "params": [{
             "term1": {
-                "$class": "ArrayPattern",
-                "args": [{ "$var": "X" }, [{ "$var": "Y" }]]
+                "$arrayPattern": [{ "$var": "X" }, [{ "$var": "Y" }]]
             },
             "term2": [1, 2, 3],
             "bindings": {
@@ -600,8 +568,7 @@ export default [
         "description": "T25: (Non-Greedy Split) Multiple spreads and fixed parts `...X, Y, ...Z`",
         "params": [{
             "term1": {
-                "$class": "ArrayPattern",
-                "args": [{ "$var": "X" }, [{ "$var": "Y" }], { "$var": "Z" }]
+                "$arrayPattern": [{ "$var": "X" }, [{ "$var": "Y" }], { "$var": "Z" }]
             },
             "term2": [1, 2, 3, 4],
             "bindings": {},
@@ -626,8 +593,7 @@ export default [
         "description": "T26: Fixed part [X] grounds to [1, 2] but should ground to [[1, 2]]",
         "params": [{
             "term1": {
-                "$class": "ArrayPattern",
-                "args": [
+                "$arrayPattern": [
                     [{ "$var": "X" }]
                 ]
             },
@@ -669,8 +635,7 @@ export default [
     //     "description": "T29: ArrayPattern: [A, default(99), ...T] vs [1] -> Succeeds, applies default",
     //     "params": [{
     //         "term1": {
-    //             "$class": "ArrayPattern",
-    //             "args": [
+    //             "$arrayPattern": [
     //                 [
     //                     { "$var": "A" },
     //                     {
@@ -694,8 +659,7 @@ export default [
         "description": "T30: ArrayPattern: [A, default(99), ...T] vs [1, 2] -> Default Ignored",
         "params": [{
             "term1": {
-                "$class": "ArrayPattern",
-                "args": [
+                "$arrayPattern": [
                     [
                         { "$var": "A" },
                         { "$optional": [{ "$var": "__B" }, 99] }
@@ -717,8 +681,7 @@ export default [
         "description": "T31: ArrayPattern: [A, B = optional(99), ...T] vs [1, W = optional(50)] -> Pattern Default Ignored",
         "params": [{
             "term1": {
-                "$class": "ArrayPattern",
-                "args": [
+                "$arrayPattern": [
                     [
                         { "$var": "A" },
                         { "$optional": [{ "$var": "B" }, 99] }
@@ -743,8 +706,7 @@ export default [
         "description": "T32: ArrayPattern: [A, B = optional(99), ...T] vs [1, W = optional(99)] -> Pattern Default Ignored",
         "params": [{
             "term1": {
-                "$class": "ArrayPattern",
-                "args": [
+                "$arrayPattern": [
                     [
                         { "$var": "A" },
                         { "$optional": [{ "$var": "B" }, 99] }

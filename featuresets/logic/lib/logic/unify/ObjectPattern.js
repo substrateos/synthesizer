@@ -53,7 +53,7 @@ function flattenParts(ground, parts, bindings) {
  * Builds the simplest possible term (plain object, Symbol, or new ObjectPattern)
  * from a set of fixed properties and spreads.
  */
-function buildPatternTerm(fixedProps, spreads, isExact = false) {
+function buildPatternTerm(fixedProps, spreads) {
     const hasFixed = Object.keys(fixedProps).length > 0;
 
     if (spreads.length === 0) {
@@ -70,7 +70,7 @@ function buildPatternTerm(fixedProps, spreads, isExact = false) {
         parts.push(fixedProps);
     }
     parts.push(...spreads);
-    return ObjectPattern.from(parts, { isExact });
+    return ObjectPattern.from(parts);
 }
 
 /**
@@ -82,10 +82,10 @@ function unifySpreadsAgainstNeeds(unify, spreads, needs, bindings, location) {
 
     // Build the simplest possible term for what is needed
     // Needs are always "exact" in symmetric unification
-    const needsTerm = buildPatternTerm(flat_needs.fixedProps, flat_needs.spreads, true);
+    const needsTerm = buildPatternTerm(flat_needs.fixedProps, flat_needs.spreads);
 
     // Build the simplest possible term for the spreads we have
-    const spreadsTerm = buildPatternTerm({}, spreads, true);
+    const spreadsTerm = buildPatternTerm({}, spreads);
 
     // console.log('unifySpreadsAgainstNeeds', {needsTerm, spreadsTerm, flat_needs, unify, spreads, needs, bindings})
 
@@ -197,18 +197,12 @@ function unifySymmetricPatterns(unify, parts1, parts2, bindings, location) {
 }
 
 class ObjectPattern {
-    static from(parts, options) {
+    static from(parts) {
         if (parts.length === 1) {
             const part = parts[0]
-            if (typeof part === 'symbol' || (options?.isExact && !Object.values(part).some(part => part instanceof Value))) {
+            if (typeof part === 'symbol' || (!Object.values(part).some(part => part instanceof Value))) {
                 return part
             }
-        }
-
-        if (!options?.isExact && !parts.some(part => typeof part === 'symbol')) {
-            // if ObjectPattern isn't exact, add an anonymous spread.
-            // console.log('adding anonymous spread')
-            parts = [...parts, _]
         }
 
         return new ObjectPattern(parts)
@@ -219,7 +213,7 @@ class ObjectPattern {
      * e.g., [ {a: 1}, Symbol('R'), {c: 3} ]
      */
     constructor(parts) {
-        this.parts = parts || [];
+        this.parts = parts;
     }
 
     *[symbolsTag](symbols) {
@@ -331,7 +325,7 @@ class ObjectPattern {
         const flat = flattenParts(ground, this.parts, bindings);
 
         // Build the simplest possible term from the grounded parts.
-        return buildPatternTerm(flat.fixedProps, flat.spreads, this.isExact);
+        return buildPatternTerm(flat.fixedProps, flat.spreads);
     }
 }
 

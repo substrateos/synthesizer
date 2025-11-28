@@ -37,10 +37,10 @@ function serialize(data) {
         return data.map(serialize);
     }
     if (data instanceof ArrayPattern) {
-        return { '$class': 'ArrayPattern', 'args': data.parts.map(serialize) };
+        return { '$arrayPattern': data.parts.map(serialize) };
     }
     if (data instanceof ObjectPattern) {
-        return { '$class': 'ObjectPattern', 'args': data.parts.map(serialize) };
+        return { '$objectPattern': data.parts.map(serialize) };
     }
     const newObj = {};
     for (const key of Reflect.ownKeys(data)) {

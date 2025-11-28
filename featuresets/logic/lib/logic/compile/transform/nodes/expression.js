@@ -12,7 +12,7 @@ function extractLogicOptionalIfAny(node) {
 }
 
 function _generatePattern(transformExpression, isObject, nodes, context) {
-    const partsCode = [];
+    let partsCode = [];
     let currentFixedCode = [];
 
     const pushFixed = () => {
@@ -56,8 +56,11 @@ function _generatePattern(transformExpression, isObject, nodes, context) {
     pushFixed();
 
     if (patternRequired || partsCode.length > 1) {
-        if (isObject) return `ObjectPattern.from([${partsCode.join(', ')}], {isExact: true})`;
-        return `ArrayPattern.of(${partsCode.join(', ')})`;
+        if (partsCode.includes('_')) {
+            partsCode = partsCode.map(partCode => partCode === '_' ? `Symbol('_')` : partCode)
+        }
+        if (isObject) return `ObjectPattern.from([${partsCode.join(', ')}])`;
+        return `ArrayPattern.from([${partsCode.join(', ')}])`;
     }
     return partsCode[0] || (isObject ? '{}' : '[]')
 }
