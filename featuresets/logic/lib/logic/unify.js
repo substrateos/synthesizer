@@ -1,4 +1,4 @@
-import { unifyTag, groundTag, _ } from "@/lib/logic/tags.js"
+import { unifyTag, groundTag, runnableGoalsTag, _ } from "@/lib/logic/tags.js"
 import symbols from '@/lib/logic/unify/symbols.js'
 import Trace from '@/lib/logic/unify/Trace.js'
 import Value from '@/lib/logic/unify/Value.js'
@@ -78,6 +78,86 @@ function contains(structure, sym) {
 }
 
 /**
+ * Internal helper: Checks a native constraint (boolean/value return).
+ */
+function checkConstraint(fn, args, val, bindings, boundSym) {
+    const currentArgs = [];
+    let stillUnbound = false;
+
+    for (let i = 0; i < args.length; i++) {
+        const arg = args[i]
+        // Check the symbol currently being bound
+        if (arg === boundSym) {
+            currentArgs.push(val);
+            continue;
+        }
+
+        // Resolve against current bindings
+        const r = resolve(arg, bindings).value;
+
+        // Handle aliasing (if arg pointed to boundSym)
+        const currentArg = (r === boundSym) ? val : r
+
+        if (typeof currentArg === 'symbol') {
+            stillUnbound = true;
+            break
+        }
+
+        currentArgs.push(currentArg);
+    }
+
+    if (stillUnbound) return bindings; // Defer again (return current bindings)
+
+    // Execute logic. If true, return bindings (success). If false, return null (fail).
+    return fn(...currentArgs) ? bindings : null;
+}
+
+/**
+ * Internal helper: Checks a logic subgoal constraint.
+ * Instead of running logic, it schedules the goal in the RunnableGoals trace.
+ */
+function checkSubgoal(args, location, val, bindings) {
+    // If the resolver is still unbound (e.g. aliased to another symbol), defer.
+
+    // Check if the value is a Symbol (aliasing). If so, defer.
+    if (typeof val === 'symbol') return bindings;
+
+    // The resolver is concrete. Schedule it.
+    // We create a SCHEDULE event.
+    return registerTraceEvent(bindings, [runnableGoalsTag], {
+        type: 'SCHEDULE',
+        resolver: val, // The concrete predicate
+        args,    // The arguments to the call
+        location
+    });
+}
+
+/**
+ * Checks for runnable goals, clears them from bindings, and returns them.
+ * This is an atomic "pop all" operation for the mailbox.
+ * @param {Object} bindings - Current bindings.
+ * @returns {Object|null} { bindings: newBindings, goals: [...] } or null if empty.
+ */
+export function claimRunnableGoals(bindings) {
+    const entry = bindings[runnableGoalsTag];
+    if (!entry || !entry.trace) return null;
+
+    const goals = []
+    for (const event of entry.trace) {
+        if (event.type === 'SCHEDULE') {
+            goals.push(event)
+        }
+    }
+
+    return {
+        bindings: mergeBindings(bindings, {
+            [runnableGoalsTag]: undefined
+        }),
+        goals,
+    }
+}
+
+/**
  * Applies a constraint based on a native JS function.
  * @param {Object} bindings - Current bindings.
  * @param {Function} fn - The function defining the logic (e.g., (a,b) => a > b).
@@ -85,7 +165,7 @@ function contains(structure, sym) {
  * @param {Object} location - Source location for debugging.
  */
 export function constrain(bindings, fn, args, location) {
-    // Resolve all arguments once
+    // Check immediately if we can run it
     const resolvedArgs = new Array(args.length);
     const unboundVars = new Set();
     let isFullyGround = true;
@@ -105,65 +185,47 @@ export function constrain(bindings, fn, args, location) {
     }
 
     // Deferral
-    const constraintEvent = {
+    return registerTraceEvent(bindings, unboundVars, {
         type: 'CONSTRAINT',
         fn,
-        args, // Store original args so future checks resolve against future bindings
+        args,
         location,
-        check: (val, b, boundSym) => {
-            const currentArgs = [];
-            let stillUnbound = false;
+        check: (val, b, boundSym) => checkConstraint(fn, args, val, b, boundSym)
+    });
+}
 
-            for (let i = 0; i < args.length; i++) {
-                // 1. Check the symbol currently being bound (Fastest)
-                if (args[i] === boundSym) {
-                    currentArgs.push(val);
-                    continue;
-                }
-
-                // Resolve against current bindings
-                const r = resolve(args[i], b).value;
-
-                // Handle aliasing (if args[i] pointed to boundSym)
-                if (r === boundSym) {
-                    currentArgs.push(val);
-                } else {
-                    currentArgs.push(r);
-                }
-
-                if (typeof currentArgs[currentArgs.length - 1] === 'symbol') {
-                    stillUnbound = true;
-                }
-            }
-
-            if (stillUnbound) return true; // Defer again
-
-            return fn(...currentArgs);
-        },
-    };
-
-    // Collect all updates into one object to prevent prototype chain thrashing.
-    const updates = {};
-
-    for (const sym of unboundVars) {
-        let trace = Trace.empty;
-
-        // If the variable is already in the bindings (local or proto)
-        // we need to preserve its existing trace.
-        if (sym in bindings) {
-            const entry = bindings[sym];
-            if (entry.value === sym) { // only strictly unbound vars keep traces
-                trace = entry.trace;
-            }
-        }
-
-        updates[sym] = {
-            value: sym,
-            trace: Trace.concat(trace, Trace.of(constraintEvent))
-        };
+/**
+ * Defers a Logic Subgoal (F(X)) until F is bound.
+ */
+export function deferSubgoal(bindings, resolverVar, args, location) {
+    // Check if it's already bound (should be handled by compiler optimization, but safety first)
+    const { value } = resolve(resolverVar, bindings);
+    if (typeof value !== 'symbol') {
+        // It's already bound. Schedule immediately by calling checkSubgoal manually
+        return checkSubgoal(args, location, value, bindings);
     }
 
-    // Single allocation for the new scope
+    // We only register the constraint on the Resolver. 
+    // We do NOT wait for arguments (args) to be ground.
+    return registerTraceEvent(bindings, [value], {
+        type: 'SUBGOAL',
+        resolver: resolverVar,
+        args,
+        location,
+        check: (val, b, boundSym) => checkSubgoal(args, location, val, b)
+    });
+}
+
+function registerTraceEvent(bindings, unboundVars, event) {
+    const updates = {};
+    for (const sym of unboundVars) {
+        const entry = bindings[sym];
+        const trace = (entry?.value === sym) ? entry.trace : Trace.empty;
+        updates[sym] = {
+            value: sym,
+            trace: Trace.concat(trace, Trace.of(event))
+        };
+    }
     return mergeBindings(bindings, updates);
 }
 
@@ -181,17 +243,12 @@ export function resolve(term, bindings) {
         return { value: term, trace: Trace.empty };
     }
 
-    // We iterate as long as the binding points to a *different* symbol.
-    // If it points to a value, itself, or a missing symbol, we stop.
     while (typeof binding.value === 'symbol' && binding.value !== term) {
         const nextTerm = binding.value;
         const nextBinding = bindings[nextTerm];
-
-        // Edge Case: Points to a symbol not in bindings (treat as value)
         if (nextBinding === undefined) {
             break;
         }
-
         term = nextTerm;
         binding = nextBinding;
     }
@@ -249,40 +306,53 @@ export function bind(selfBinding, otherBinding, bindings, location) {
     if (contains(value, sym)) return null; // Occurs check
 
     if (typeof value === 'symbol') {
-        // Target inherits Source's history (Target + Source)
-        const combinedTrace = Trace.concat(
-            selfBinding.trace,
-            otherBinding.trace,
-        );
-
-        // Source becomes a simple pointer (Link)
-        // It no longer needs its old constraints because they are now active on the Target.
-        const linkTrace = Trace.of({ type: 'BIND', variable: value, value: sym, location });
-
         return mergeBindings(bindings, {
-            [sym]: { value, trace: linkTrace },
-            [value]: { value, trace: combinedTrace }
+            [sym]: {
+                value,
+                // Source becomes a simple pointer (Link)
+                // It no longer needs its old constraints because they are now active on the Target.
+                trace: Trace.of({ type: 'BIND', variable: value, value: sym, location }),
+            },
+            [value]: {
+                value,
+                // Target inherits Source's history (Target + Source)
+                trace: Trace.concat(
+                    selfBinding.trace,
+                    otherBinding.trace,
+                ),
+            }
         });
     }
 
-    if (selfBinding.trace) {
-        for (const event of selfBinding.trace) {
+    // Checking constraints
+    // If ANY check returns null, the binding fails.
+    // If checks return new bindings (side effects), we accumulate them.
+
+    const upstreamTrace = Trace.concat(selfBinding.trace, otherBinding.trace)
+
+    bindings = mergeBindings(bindings, {
+        [sym]: {
+            value,
+            trace: Trace.concat(
+                Trace.of({ type: 'BIND', variable: sym, value, location }),
+                upstreamTrace,
+            ),
+        },
+    });
+
+    if (upstreamTrace) {
+        for (const event of upstreamTrace) {
             if (event.check) {
-                if (!event.check(value, bindings, sym)) {
+                // Pass bindings to allow sequential updates from multiple constraints
+                bindings = event.check(value, bindings, sym);
+                if (bindings === null) {
                     return null; // Constraint Violation
                 }
             }
         }
     }
 
-    const linkTrace = Trace.concat(
-        Trace.of({ type: 'BIND', variable: sym, value, location }),
-        Trace.concat(selfBinding.trace, otherBinding.trace),
-    );
-
-    return mergeBindings(bindings, {
-        [sym]: { value, trace: linkTrace },
-    });
+    return bindings
 }
 
 export default function unify(term1, term2, bindings, location) {
@@ -421,6 +491,8 @@ function unifyResolved0(b1, b2, bindings, location) {
 Object.assign(unify, {
     bind,
     constrain,
+    deferSubgoal,
+    claimRunnableGoals,
     constraints,
     ground,
     isGround,

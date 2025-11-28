@@ -4,7 +4,6 @@ export default {
     urls: [
         'lib/logic/README.md',
         'lib/logic/logic.js',
-        'lib/logic/runtime.js',
         'lib/logic/tags.js',
 
         'lib/logic/acorn@8.15.0.js',
@@ -16,6 +15,7 @@ export default {
         'lib/logic/findall.js',
         'lib/logic/parser.js',
         'lib/logic/runtime.js',
+        'lib/logic/runtime/scheduleRunnableGoals.js',
         'lib/logic/solve.js',
         'lib/logic/repr.js',
         'lib/logic/tracer.js',
@@ -43,6 +43,8 @@ export default {
         'lib/logic/testShim/tests/patterns-array.js',
         'lib/logic/testShim/tests/patterns-object.js',
         'lib/logic/testShim/tests/builtins-findall.js',
+        'lib/logic/testShim/tests/deferred-subgoals.js',
+        'lib/logic/testShim/tests/deferred-constraints.js',
         'lib/logic/testShim/tests/dynamic-subgoal.js',
         'lib/logic/testShim/tests/grandparent.js',
         'lib/logic/testShim/tests/negation.js',

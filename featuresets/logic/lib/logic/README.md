@@ -42,7 +42,9 @@ This language is a hybrid that combines the declarative power of logic programmi
   * **Predicate Shadowing**: A nested rule "shadows" any global rule of the same name. The engine will try the local (inner) rule first.
   * **Fallback on Backtracking**: If a local shadowed rule fails (or after it succeeds and the user requests more solutions), the engine will backtrack and try the outer (global) rule.
   * **Read-Only Closures**: A nested rule has read-only access to the variables declared in its parent's scope, allowing for implicit context.
-  * **Dynamic Subgoals**: A variable can be used as a predicate name, allowing for the creation of higher-order, generic predicates (e.g., `map(List, Predicate)`).
+  * **Dynamic Subgoals**: A variable can be used as a predicate name (e.g., `P(X)`).
+    * **Reactive Execution**: If the variable `P` is unbound at the time of the call, execution of that specific goal is **suspended** (deferred) and the rest of the program continues. The suspended goal automatically resumes ("wakes up") as soon as `P` is bound to a valid predicate later in the execution flow.
+    * **Higher-Order Patterns**: This enables powerful generic rules where the specific logic to be applied is determined by data constraints solved later.
 
 ### Control Flow & Built-ins
 
@@ -657,8 +659,8 @@ This difference is most important for destructuring, where a missing key or arra
 
 ### A Note on Native Constraint Syntax
 
-When writing native constraints (e.g., `X + Y > 10`), the compiler captures the source code to pass to external solvers. Therefore, these expressions must be **pure arithmetic**.
+When writing native constraints (e.g., `X + Y > 10` or `X > F(Y)`), the compiler captures the source code to evaluate it later and to make it available to external solvers.
 
-* **Allowed**: Arithmetic operators (`+`, `-`, `*`, `/`, `%`), grouping `()`, literals, and logic variables.
-* **Forbidden**: Function calls (`Math.max(...)`), property access (`A.value`), and assignments (`A = B`).
-* **Workaround**: For unsupported operations, perform the calculation outside the constraint using `Logic.js()`.
+* **Allowed**: Arithmetic operators, literals, logic variables, **function calls**, and **property access**.
+* **Reactive Deferral**: If an expression involves an unbound logic variable, the constraint is automatically **deferred**. It is stored as a trace event and executed only when the variable is bound.
+* **Purity**: Functions called within constraints should be **pure** (side-effect free) and idempotent, as the solver may re-evaluate them multiple times during unification checks.

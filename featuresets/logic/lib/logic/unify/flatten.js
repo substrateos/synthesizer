@@ -26,16 +26,13 @@ export default function flatten(proto, source, root) {
 
     let sym;
     while ((sym = stack.pop())) {
-        let binding;
-
         // We only copy from Source.
         // If it's not in Source (or Source's proto), we don't copy it to Target.
-        if (sym in source) {
-            binding = source[sym];
-            target[sym] = binding; // Shallow copy (Reference)
-        } else {
-            continue; 
+        let binding = source[sym];
+        if (!binding) {
+            continue
         }
+        target[sym] = binding; // Shallow copy (Reference)
 
         // Value Pointers (X -> Y)
         if (binding.value) {

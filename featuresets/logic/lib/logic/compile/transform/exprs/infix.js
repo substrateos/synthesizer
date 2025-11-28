@@ -7,12 +7,7 @@ import { simple } from "@/lib/logic/acorn-walk@8.3.4.js";
  */
 function validateConstraint(node, context) {
     simple(node, {
-        CallExpression(n) {
-            throw new Error(`Function calls ('${context.getRawSource(n)}') are not yet supported inside native constraints.`);
-        },
-        MemberExpression(n) {
-            throw new Error(`Property access ('${context.getRawSource(n)}') is not yet supported inside native constraints.`);
-        },
+        // FORBIDDEN: Mutation
         AssignmentExpression(n) { throw new Error("Assignments are not allowed inside constraints."); },
         UpdateExpression(n) { throw new Error("Update expressions are not allowed inside constraints."); }
     });
@@ -21,7 +16,7 @@ function validateConstraint(node, context) {
 export default ({ leftNode, rightNode, operator, startLocation, transformExpression }, context) => {
     const location = JSON.stringify(startLocation);
 
-    // Validate structure (No calls, no side effects)
+    // Validate structure (No side effects)
     validateConstraint(leftNode, context);
     validateConstraint(rightNode, context);
 
@@ -36,17 +31,12 @@ export default ({ leftNode, rightNode, operator, startLocation, transformExpress
     const argsList = args.join(', ');
 
     return [
-        `bindings = unify.constrain(`,
-        `    bindings,`,
-        `    ${fnString},`,
-        `    [${argsList}],`,
-        `    ${location}`,
-        `);`,
+        `bindings = unify.constrain(bindings, ${fnString}, [${argsList}], ${location});`,
         ifExpr(`bindings`, [
             `pc++;`, // Constraint satisfied or deferred
         ], [
             `yieldValue = { type: 'fail', location: ${location} };`,
-            e_else => e_else.continue()
+            e => e.continue()
         ]),
     ];
 }

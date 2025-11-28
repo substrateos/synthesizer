@@ -18,6 +18,7 @@ export default (transformExpression, node, context) => {
         target: transformExpression(context.lhs, context),
         rawString: context.getRawSource(exprNode),
         paramNames: params,
-        argValues: argValues
+        argValues: argValues,
+        startLocation: context.getRawSourceLocation(node.start)
     });
 };

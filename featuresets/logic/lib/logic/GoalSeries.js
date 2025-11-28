@@ -283,11 +283,13 @@ export default function GoalSeries({nextID=1, defaultSchedulerClass=DFS, default
 
                 case 'fork': { 
                     let {resume, forks, forksNeedBindings} = signal;
-                    // if we have caller bindings for the current goal, and we see a fork, we may need to thread them through
-                    if (forksNeedBindings && currentGoal.bindings) {
-                        forks = forks.map(task => ({...task, callerBindings: currentGoal.bindings}));
+                    if (forks) {
+                        // if we have caller bindings for the current goal, and we see a fork, we may need to thread them through
+                        if (forksNeedBindings && currentGoal.bindings) {
+                            forks = forks.map(task => ({...task, callerBindings: currentGoal.bindings}));
+                        }
+                        currentGoal.scheduleAll(forks);
                     }
-                    currentGoal.scheduleAll(forks);
                     if (resume) {
                         currentGoal.schedule({ resume });
                     }

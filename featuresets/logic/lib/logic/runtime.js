@@ -5,10 +5,12 @@ import {
     nameTag,
     generatedSourceTag,
     resolverTags,
+    runnableGoalsTag,
     _,
 } from "@/lib/logic/tags.js"
 
 import GoalSeries from "@/lib/logic/GoalSeries.js";
+import scheduleRunnableGoals from "@/lib/logic/runtime/scheduleRunnableGoals.js";
 import unify from "@/lib/logic/unify.js";
 import createTracer from "@/lib/logic/tracer.js";
 import ObjectPattern from "@/lib/logic/unify/ObjectPattern.js";
@@ -122,10 +124,12 @@ export default {
     baseConfig,
     createTracer,
     createConfiguredQuery,
+    scheduleRunnableGoals,
     predicatesTag,
     resolverTag,
     configTag,
     nameTag,
+    runnableGoalsTag,
     generatedSourceTag,
     resolverTags,
     GoalSeries,

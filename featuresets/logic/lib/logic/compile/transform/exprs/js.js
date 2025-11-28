@@ -1,4 +1,4 @@
-import valueExpr from "@/lib/logic/compile/transform/exprs/value.js";
+import unifyExpr from "@/lib/logic/compile/transform/exprs/unify.js";
 import switchExpr from "@/lib/logic/compile/transform/exprs/switch.js";
 
 /**
@@ -7,9 +7,10 @@ import switchExpr from "@/lib/logic/compile/transform/exprs/switch.js";
  * @param {string} rawString - The user's JS code (body of the IIFE).
  * @param {string[]} paramNames - List of formal parameter names for the IIFE (e.g. ["A", "Math"]).
  * @param {string[]} argValues - List of runtime expressions to pass as arguments (e.g. ["unify.ground(...)", "$i_Math"]).
+ * @param {object} startLocation - { line, column } for debugging.
  */
-export default ({ target, rawString, paramNames, argValues }) => {
-  
+export default ({ target, rawString, paramNames, argValues, startLocation }) => {
+
   const iifeBody = rawString;
   const iifeParamNames = paramNames.join(', ');
   const iifeArgs = argValues.join(', ');
@@ -25,10 +26,10 @@ export default ({ target, rawString, paramNames, argValues }) => {
         `    isGround: (v) => unify.isGround(v),`,
         `    constraints: (v) => unify.constraints(v, bindings),`,
         `}; // TODO only lazily insert the Logic helper`,
-        
+
         // Execute the IIFE, passing in grounded logic vars and raw imports
         `value = (function(${iifeParamNames}){ return ${iifeBody} }).call(Logic, ${iifeArgs});`,
-        
+
         `if (shouldFail) {`,
         `    yieldValue = {type: 'fail', reason: shouldFail.reason}`,
         `    continue`,
@@ -65,16 +66,15 @@ export default ({ target, rawString, paramNames, argValues }) => {
         `        throw resumeValue.error`,
         `    }`,
         `}`,
-        // Bind the result of the JS expression to the target variable
-        `bindings = unify(${valueExpr(target, 'bindings')}, value, bindings, location);`,
-        `if (bindings) {`,
-        `    pc++; // Success, continue to the next goal.`,
-        `    oppc = undefined;`,
-        `} else {`,
-        `    // Unification with the computed value failed.`,
-        `    yieldValue = { type: 'fail' };`,
-        `    continue;`,
-        `}`,
+        unifyExpr({
+          left: target,
+          right: 'value',
+          startLocation,
+          successExpr: [
+            // Cleanup local state on success (unifyExpr handles pc++)
+            `oppc = undefined;`,
+          ],
+        }),
         e => e.break()],
     ]),
   ]

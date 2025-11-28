@@ -69,7 +69,7 @@ export default ({ topLevelScope, imports = [], exports = [] }) => {
     }
 
     return `(function(runtime) {
-const { unify, resolverTags, resolverTag, nameTag, ArrayPattern, ObjectPattern, Value, _, createTracer } = runtime;
+const { unify, resolverTags, resolverTag, nameTag, ArrayPattern, ObjectPattern, Value, _, createTracer, runnableGoalsTag, scheduleRunnableGoals } = runtime;
 ${loaderCode}
 
 ${resolvers}
